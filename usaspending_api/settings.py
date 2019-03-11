@@ -87,6 +87,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.postgres',
 
+    'usaspending_api.database_scripts.apps.DatabaseScriptsConfig',
+    # 'usaspending_api.database_scripts',
+
     'debug_toolbar',
     'django_extensions',
     'rest_framework',

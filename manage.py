@@ -1,6 +1,9 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
+
+from usaspending_api.database_scripts.apps import parse_custom_args_for_migrate
 
 if __name__ == "__main__":
     os.environ.setdefault("DDM_CONTAINER_NAME", "app")
@@ -20,4 +23,17 @@ if __name__ == "__main__":
                 "forget to activate a virtual environment?"
             )
         raise
-    execute_from_command_line(sys.argv)
+
+    argv = sys.argv
+    cmd = argv[1] if len(argv) > 1 else None
+
+    # Handle user-defined extra arguments providing conditional behavior for
+    # customized or overrides/extensions to Django management commands
+    if cmd in ['migrate']:
+        argv = parse_custom_args_for_migrate(argv)
+
+    # parse_known_args strips the extra arguments from argv,
+    # so we can safely pass it to Django.
+    execute_from_command_line(argv)
+
+    #execute_from_command_line(sys.argv)
