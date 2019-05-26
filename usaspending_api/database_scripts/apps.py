@@ -63,8 +63,10 @@ BLUE_GREEN_REPLACEABLE_OBJECT_SCHEMA = '''
         ELSE
             RAISE NOTICE 'Switching to blue schema named %, as current search_path does not have blue or green set', blue_green_schema;
        	END IF;
+        -- Set it at the DB level for any new SESSIONs
         EXECUTE format('ALTER DATABASE data_store_api SET search_path TO %s, public', blue_green_schema);
-        RESET search_path;
+        -- Set it for THIS SESSION
+        EXECUTE format('SET search_path TO %s, public', blue_green_schema);
     
         -- Do some testing of the new schema to verify the blue-green switch worked
         RAISE NOTICE '... Doing testing of new objects in % ...', blue_green_schema;
