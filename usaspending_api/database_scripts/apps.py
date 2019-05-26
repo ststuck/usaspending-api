@@ -12,6 +12,84 @@ from django.core.management.base import OutputWrapper
 from django.db import connections, transaction
 from django.db.models.signals import pre_migrate, post_migrate
 
+BLUE_GREEN_REPLACEABLE_OBJECT_SCHEMA = '''
+    DO $$
+    DECLARE
+        current_search_path text;
+        timestamp_string text := to_char(NOW(), 'YYYYMMDDHHMISSMS');
+      	blue_green_schema text;
+        prior_blue_green_schemas text[];
+        old_bg_schema text;
+        resulting_search_path text;
+        resulting_schemas text[];
+    BEGIN 
+        SELECT setting INTO current_search_path FROM pg_settings WHERE name = 'search_path';
+        RAISE NOTICE 'Current Search Path %', current_search_path;
+        
+        -- Create the new blue or green schema
+        -- And set the search_path for THIS SESSION ONLY, so objects are created in the new schema
+        IF current_search_path LIKE 'blue%' THEN 
+        	RAISE NOTICE 'search_path shows blue schema, creating green';
+            blue_green_schema := format('green_%s', timestamp_string);
+            EXECUTE format('CREATE SCHEMA %s', blue_green_schema);
+            EXECUTE format('SET search_path TO %s, %s', blue_green_schema, current_search_path);
+        ELSIF current_search_path LIKE 'green%' THEN 
+        	RAISE NOTICE 'search_path shows green schema, creating blue';
+            blue_green_schema := format('blue_%s', timestamp_string);
+            EXECUTE format('CREATE SCHEMA %s', blue_green_schema);
+            EXECUTE format('SET search_path TO %s, %s', blue_green_schema, current_search_path);
+        ELSIF current_search_path = '' THEN 
+            RAISE NOTICE 'Search path is currently empty. No blue or green schema in search_path yet, adding blue: %', blue_green_schema;
+            blue_green_schema := format('blue_%s', timestamp_string);
+            EXECUTE format('CREATE SCHEMA %s', blue_green_schema);
+            EXECUTE format('SET search_path TO %s', blue_green_schema);
+        ELSE
+            blue_green_schema := format('blue_%s', timestamp_string);
+            RAISE NOTICE 'No blue or green schema in search_path yet, adding blue: %', blue_green_schema;
+            EXECUTE format('CREATE SCHEMA %s', blue_green_schema);
+            EXECUTE format('SET search_path TO %s, %s', blue_green_schema, current_search_path);
+       	END IF;
+    
+        -- Do creation of objects. It will put them in the new schema since it is first in the search path for this SESSION
+        RAISE NOTICE '... Doing creation of new objects in % ...', blue_green_schema;
+        
+        -- Switch schemas (blue to green, or green to blue), now that all objects are created
+        IF current_search_path LIKE 'blue%' THEN 
+        	RAISE NOTICE 'Switching to green schema named %, as current search_path shows blue schema', blue_green_schema;
+        ELSIF current_search_path LIKE 'green%' THEN 
+        	RAISE NOTICE 'Switching to blue schema named %, as current search_path shows green schema', blue_green_schema;
+        ELSIF current_search_path = '' THEN 
+            RAISE NOTICE 'Switching to blue schema named %, as current search_path is empty', blue_green_schema;
+        ELSE
+            RAISE NOTICE 'Switching to blue schema named %, as current search_path does not have blue or green set', blue_green_schema;
+       	END IF;
+        EXECUTE format('ALTER DATABASE data_store_api SET search_path TO %s, public', blue_green_schema);
+        RESET search_path;
+    
+        -- Do some testing of the new schema to verify the blue-green switch worked
+        RAISE NOTICE '... Doing testing of new objects in % ...', blue_green_schema;
+        
+        -- Remove old blue or green schema once testing is confirmed
+        EXECUTE format('SELECT array(
+            SELECT nspname 
+            FROM pg_catalog.pg_namespace
+            WHERE nspname <> ''%s''
+            AND (nspname LIKE ''blue%%'' OR nspname LIKE ''green%%'')
+        )', blue_green_schema) INTO prior_blue_green_schemas;
+        
+        
+        FOREACH old_bg_schema IN ARRAY prior_blue_green_schemas
+        LOOP 
+            RAISE NOTICE 'Dropping old blue/green schema % with CASCADE', old_bg_schema;
+            EXECUTE format('DROP SCHEMA IF EXISTS %s CASCADE', old_bg_schema);
+        END LOOP;
+        
+        SELECT setting INTO resulting_search_path FROM pg_settings WHERE name = 'search_path';
+        SELECT array(SELECT nspname from pg_catalog.pg_namespace) INTO resulting_schemas;
+        RAISE NOTICE 'Resulting Search Path %', resulting_search_path;
+        RAISE NOTICE 'Resulting Schemas %', resulting_schemas; 
+    END $$;
+'''
 
 class MatviewMigrationOptions(Enum):
     skip = 1
