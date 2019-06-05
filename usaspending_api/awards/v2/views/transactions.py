@@ -1,16 +1,48 @@
+import logging
+import time
 from copy import deepcopy
 
+from django.db import transaction
 from django.db.models import F
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from usaspending_api.awards.models import TransactionNormalized
+from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTransactionHitManager
+from usaspending_api.awards.v2.filters.location_filter_geocode import build_temp_es_transaction_hits_by_city
 from usaspending_api.common.cache_decorator import cache_response
 from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata
-from usaspending_api.common.views import APIDocumentationView
 from usaspending_api.common.validator.award import get_internal_or_generated_award_id_model
 from usaspending_api.common.validator.pagination import customize_pagination_with_sort_columns
 from usaspending_api.common.validator.tinyshield import TinyShield
+from usaspending_api.common.views import APIDocumentationView
+
+logger = logging.getLogger(__name__)
+
+
+class TempEsTransactionHitViewSet(APIView):
+    @transaction.atomic
+    def get(self, request, format=None):
+        """
+        Return a list of data from a temp table
+        """
+        logger.info("starting request to TempEsTransactionHitsViewSet")
+
+        # Gen a bunch of unique data to jam into that table. Use epoch time so its dated
+        epoch_time = int(time.time())
+        row_count = 20
+        dummy_hits = [TempEsTransactionHit(award_id=((epoch_time + i) % int(row_count / 5)),
+                                           transaction_id=epoch_time + i)
+                      for i in range(0, row_count)]
+
+        TempEsTransactionHitManager.create_temp_table()
+        # TempEsTransactionHitManager.add_es_hits_orm(dummy_hits)
+        build_temp_es_transaction_hits_by_city("recipient_location", "PLEASANTVILLE", "USA")
+        TempEsTransactionHitManager.index_temp_table()
+
+        hits = [(hit.award_id, hit.transaction_id) for hit in TempEsTransactionHit.objects.all()]
+        return Response(hits)
 
 
 class TransactionViewSet(APIDocumentationView):

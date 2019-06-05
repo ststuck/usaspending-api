@@ -1,8 +1,9 @@
 from django.conf import settings
 from django.db.models import Q
 from itertools import chain
-from typing import Optional
+from typing import Optional, List
 
+from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTransactionHitManager
 from usaspending_api.common.elasticsearch.client import es_client_query
 from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.search.v2.elasticsearch_helper import es_sanitize
@@ -199,6 +200,52 @@ def get_record_ids_by_city(
     }
 
     return elasticsearch_results(search_body)
+
+def build_temp_es_transaction_hits_by_city(scope: str, city: str, country_code: str, state_code: Optional[str] = None):
+    hits = page_es_hits_by_city(scope, city, country_code, state_code)
+    TempEsTransactionHitManager.add_es_hits_orm(hits)
+
+
+# TODO allow for search_after tuple to be provided with prior tx and aws ids
+def page_es_hits_by_city(scope: str, city: str, country_code: str,
+                           state_code: Optional[str] = None,
+                           page_size: int = 50000, search_after: List[int] = None) -> list:
+    """
+    Craft an elasticsearch query to return award ids by city or an empty list
+    if there were no matches.
+    """
+    # Search using a "filter" instead of a "query" to leverage ES caching
+    query = {
+        "bool": {
+            "must": [
+                {"match": {"{}_city_name.keyword".format(scope): es_sanitize(city).upper()}},
+                {"match": {"{}_country_code".format(scope): es_sanitize(country_code)}},
+            ]
+        }
+    }
+    if state_code:
+        # If a state was provided, include it in the filter to limit hits
+        query["bool"]["must"].append({"match": {"{}_state_code".format(scope): es_sanitize(state_code).upper()}})
+
+    search_body = {
+        "_source": ["award_id", "transaction_id"],
+        "size": page_size,
+        "query": query,
+        "sort": [
+            {"award_id": "asc"},
+            {"transaction_id": "asc"}
+        ]
+    }
+
+    if search_after:
+        search_body["search_after"] = search_after
+
+    result = es_client_query(body=search_body, index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), retries=5)
+    if result and result["hits"]["total"] and result["hits"]["hits"]:
+        yield from (TempEsTransactionHit(award_id=hit["_source"]["award_id"],
+                                         transaction_id=hit["_source"]["transaction_id"])
+                    for hit in result["hits"]["hits"])
+        page_es_hits_by_city(scope, city, country_code, state_code, page_size, result["hits"]["hits"][-1]["sort"])
 
 
 def elasticsearch_results(body: dict) -> list:
