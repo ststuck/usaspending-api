@@ -57,9 +57,15 @@ class TempEsTransactionHitManager(models.Manager):
         # Perform bulk insert in chunks.
         hits_iter = iter(hits)
         chunk_of_hits = tuple(itertools.islice(hits_iter, CHUNK_SIZE))
+        chunk_num = 1
         while chunk_of_hits:
+            logger.debug("    -> Streaming batch #{} with a size of {} "
+                         "transaction hits into {} temp table".format(chunk_num,
+                                                                      CHUNK_SIZE,
+                                                                      TEMP_ES_TRANSACTION_HIT_TABLE_NAME))
             TempEsTransactionHit.objects.bulk_create(chunk_of_hits)
             chunk_of_hits = tuple(itertools.islice(hits_iter, CHUNK_SIZE))
+            chunk_num = chunk_num + 1
 
 
     @staticmethod
