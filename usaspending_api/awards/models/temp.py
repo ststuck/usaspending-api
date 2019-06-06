@@ -25,7 +25,12 @@ class TempEsTransactionHitManager(models.Manager):
             _temp_table_on_commit = "PRESERVE ROWS"
             # TODO: CONSIDER ENFORCING ALL METHODS IN THIS MANAGER TO HAVE TO RUN IN AN ATOMIC BLOCK
             if connection.in_atomic_block:
+                logger.debug("In a transaction block during temp table creation. Will delete rows of table after "
+                             "transaction commit")
                 _temp_table_on_commit = "DELETE ROWS"
+            else:
+                logger.debug("No transaction during temp table creation. Will leave rows in temp table. The "
+                             "table will be removed when dropped or at the end of the Postgres DB SESSION")
 
             # Create temp table, that clears its data after each transaction
             cursor.execute("""

@@ -21,6 +21,24 @@ from usaspending_api.common.views import APIDocumentationView
 logger = logging.getLogger(__name__)
 
 
+class TestTempEsTransactionHitViewSet(APIView):
+    @transaction.atomic
+    def get(self, request, format=None):
+        """
+        Test creation of temp table
+        """
+        logger.info("starting request to TestTempEsTransactionHitViewSet")
+        logger.info("Creating temp table")
+
+        TempEsTransactionHitManager.create_temp_table()
+        logger.info("temp table created")
+        logger.info("indexing temp table")
+        TempEsTransactionHitManager.index_temp_table()
+        logger.info("temp table indexed")
+
+        return Response(True)
+
+
 class TempEsTransactionHitViewSet(APIView):
     @transaction.atomic
     def get(self, request, format=None):
