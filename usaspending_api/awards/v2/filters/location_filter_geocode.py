@@ -255,7 +255,7 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
         else:
             if search_after is None:
                 logger.info("No transaction hits from Elasticsearch "
-                            "for city, state, country = {}, {}, {}".format(page_size, city, state_code, country_code))
+                            "for city, state, country = {}, {}, {}".format(city, state_code, country_code))
             break
 
 
