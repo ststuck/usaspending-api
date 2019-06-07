@@ -13,6 +13,7 @@ from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTrans
 from usaspending_api.awards.v2.filters.location_filter_geocode import build_temp_es_transaction_hits_by_city
 from usaspending_api.common.cache_decorator import cache_response
 from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata
+from usaspending_api.common.helpers.sql_helpers import get_db_for_write
 from usaspending_api.common.validator.award import get_internal_or_generated_award_id_model
 from usaspending_api.common.validator.pagination import customize_pagination_with_sort_columns
 from usaspending_api.common.validator.tinyshield import TinyShield
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class TestTempEsTransactionHitViewSet(APIView):
-    @transaction.atomic
+    @transaction.atomic(using=get_db_for_write())
     def get(self, request, format=None):
         """
         Test creation of temp table
@@ -30,17 +31,17 @@ class TestTempEsTransactionHitViewSet(APIView):
         logger.info("starting request to TestTempEsTransactionHitViewSet")
         logger.info("Creating temp table")
 
-        TempEsTransactionHitManager.create_temp_table()
+        #TempEsTransactionHitManager.create_temp_table()
         logger.info("temp table created")
         logger.info("indexing temp table")
-        TempEsTransactionHitManager.index_temp_table()
+        #TempEsTransactionHitManager.index_temp_table()
         logger.info("temp table indexed")
 
         return Response(True)
 
 
 class TempEsTransactionHitViewSet(APIView):
-    @transaction.atomic
+    @transaction.atomic(using=get_db_for_write())
     def get(self, request, format=None):
         """
         Return a list of data from a temp table

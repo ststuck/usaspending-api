@@ -18,6 +18,20 @@ logger = logging.getLogger('console')
 TYPES_TO_QUOTE_IN_SQL = (str, datetime.date)
 
 
+def get_db_for_write():
+    """
+    Get the config key for the database that should be targeted for writes and SQL actions
+
+    :return: The string key in the settings.DATABASES dictionary for the DB that should be targetted for writes
+    """
+    if "db_source" in settings.DATABASES:  # Primary DB connection in a deployed environment
+        return "db_source"
+    elif "default" in settings.DATABASES:  # For single DB connections used in scripts and local dev
+        return "default"
+    else:
+        raise Exception("No valid database connection is configured")
+
+
 def get_database_dsn_string():
     """
         This function parses the Django database configuration in settings.py and
@@ -25,14 +39,7 @@ def get_database_dsn_string():
         a PostgreSQL database
         Will return a different database configuration for local vs deployed.
     """
-
-    if "db_source" in settings.DATABASES:  # Primary DB connection in a deployed environment
-        db = settings.DATABASES["db_source"]
-    elif "default" in settings.DATABASES:  # For single DB connections used in scripts and local dev
-        db = settings.DATABASES["default"]
-    else:
-        raise Exception("No valid database connection is configured")
-
+    db = settings.DATABASES[get_db_for_write()]
     return "postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{NAME}".format(**db)
 
 
