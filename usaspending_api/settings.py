@@ -235,7 +235,7 @@ LOGGING = {
                       "%(message)s %(name)s %(pathname)s"
         },
         'simpletime': {
-            'format': "%(asctime)s - %(message)s",
+            'format': "%(asctime)s %(name)s [%(levelname)s] - %(message)s",
             'datefmt': "%H:%M:%S"
         },
         'user_readable': {
@@ -264,6 +264,11 @@ LOGGING = {
         },
     },
     'loggers': {
+        '': {
+            'handlers': ['console', 'server'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
         'server': {
             'handlers': ['server'],
             'level': 'INFO',
@@ -271,6 +276,11 @@ LOGGING = {
         },
         'console': {
             'handlers': ['console', 'console_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'elasticsearch': {
+            'handlers': ['console', 'server'],
             'level': 'INFO',
             'propagate': False,
         }
