@@ -5,9 +5,11 @@ database connection
 import itertools
 import logging
 
-from django.db import models, connection
+from django.db import models
 from psycopg2 import sql
 from typing import List
+
+from usaspending_api.common.helpers import sql_helpers
 
 TEMP_ES_TRANSACTION_HIT_TABLE_NAME = "temp_es_transaction_hits"
 TEMP_ES_TRANSACTION_HIT_AWARD_ID_INDEX_NAME = "temp_es_award_idx"
@@ -21,6 +23,7 @@ CHUNK_SIZE = 5000
 class TempEsTransactionHitManager(models.Manager):
     @staticmethod
     def create_temp_table():
+        connection = sql_helpers.get_connection(TempEsTransactionHit, read_only=False)
         with connection.cursor() as cursor:
             _temp_table_on_commit = "PRESERVE ROWS"
             # TODO: CONSIDER ENFORCING ALL METHODS IN THIS MANAGER TO HAVE TO RUN IN AN ATOMIC BLOCK
@@ -48,6 +51,7 @@ class TempEsTransactionHitManager(models.Manager):
 
     @staticmethod
     def add_es_hits(hits: List['TempEsTransactionHit']):
+        connection = sql_helpers.get_connection(TempEsTransactionHit, read_only=False)
         with connection.cursor() as cursor:
             for hit in hits:
                 insert_sql = "INSERT INTO {table} (award_id, transaction_id) VALUES (%s, %s)".format(
@@ -75,6 +79,7 @@ class TempEsTransactionHitManager(models.Manager):
 
     @staticmethod
     def index_temp_table():
+        connection = sql_helpers.get_connection(TempEsTransactionHit, read_only=False)
         with connection.cursor() as cursor:
             # Create the Indexes to make reading/joining the table fast
             cursor.execute("CREATE INDEX {index} ON {table} USING HASH (award_id)".format(

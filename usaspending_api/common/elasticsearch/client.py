@@ -22,7 +22,8 @@ def create_es_client():
     try:
         # If the connection string is using SSL with localhost, disable verifying
         # the certificates to allow testing in a development environment
-        if settings.ES_HOSTNAME.startswith("https://localhost"):
+        if settings.ES_HOSTNAME.startswith("https://localhost") or \
+                settings.ES_HOSTNAME.startswith("https://host.docker.internal"):
             logger.warn("SSL cert verification is disabled. Safe only for local development")
             import urllib3
             urllib3.disable_warnings()
