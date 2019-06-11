@@ -8,6 +8,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch import NotFoundError
 from elasticsearch import TransportError
 from elasticsearch.connection import create_ssl_context
+from elasticsearch.helpers import scan
 from ssl import CERT_NONE
 
 logger = logging.getLogger("console")
@@ -39,6 +40,8 @@ def create_es_client():
 
 def es_client_query(index, body, timeout="1m", retries=5):
     if CLIENT is None:
+        logger.debug("Global instance of Elasticsearch client found to be None on query attempt. "
+                     "Creating global client instance")
         create_es_client()
     if CLIENT is None:  # If CLIENT is still None, don't even attempt to connect to the cluster
         retries = 0
@@ -49,12 +52,21 @@ def es_client_query(index, body, timeout="1m", retries=5):
     for attempt in range(retries):
         response = _es_search(index=index, body=body, timeout=timeout)
         if response is None:
-            logger.info("Failure using these: Index='{}', body={}".format(index, json.dumps(body)))
+            logger.warning("Failure using these: Index='{}', body={}".format(index, json.dumps(body)))
         else:
             return response
     logger.error("Unable to reach elasticsearch cluster. {} attempt(s) made".format(retries))
     return None
 
+
+def es_scan(index, body, timeout="1m", batch_size=1000):
+    if CLIENT is None:
+        logger.debug("Global instance of Elasticsearch client found to be None on scan attempt. "
+                     "Creating global client instance")
+        create_es_client()
+
+        yield from scan(client=CLIENT, index=index, query=body, scroll=timeout, size=batch_size,
+                        request_timeout=timeout)
 
 def _es_search(index, body, timeout):
     error_template = "[ERROR] ({type}) with ElasticSearch cluster: {e}"

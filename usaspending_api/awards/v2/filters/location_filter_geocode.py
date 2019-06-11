@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Optional, List
 
 from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTransactionHitManager
-from usaspending_api.common.elasticsearch.client import es_client_query
+from usaspending_api.common.elasticsearch.client import es_client_query, es_scan
 from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.search.v2.elasticsearch_helper import es_sanitize
 
@@ -241,13 +241,21 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
         ]
     }
 
+    logger.debug("Start streaming Elasticsearch results for city, state, country "
+                 "= {}, {}, {}".format(city, state_code, country_code))
+    #yield from _yield_query_results_with_search_after(search_body)
+    yield from es_scan(index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), body=search_body, batch_size=page_size)
+
+
+def _yield_query_results_with_search_after(search_body):
     search_after = None
+    page_size = search_body.get("size", "[default]")
     while True:
         logger.debug("ES STARTING REQUEST (_search) with body: {}".format(search_body))
         result = es_client_query(body=search_body, index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), retries=5)
         if result and result["hits"]["total"] and result["hits"]["hits"]:
-            logger.debug("ES RECEIVED RESPONSE: Streaming batch of {} transaction hits from Elasticsearch "
-                         "for city, state, country = {}, {}, {}".format(page_size, city, state_code, country_code))
+            logger.debug("ES RECEIVED RESPONSE: Streaming batch of {} "
+                         "transaction hits from Elasticsearch".format(page_size))
             yield from (TempEsTransactionHit(award_id=hit["_source"]["award_id"],
                                              transaction_id=hit["_source"]["transaction_id"])
                         for hit in result["hits"]["hits"])
@@ -255,8 +263,7 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
             search_body["search_after"] = search_after
         else:
             if search_after is None:
-                logger.info("No transaction hits from Elasticsearch "
-                            "for city, state, country = {}, {}, {}".format(city, state_code, country_code))
+                logger.info("No transaction hits from Elasticsearch for search")
             break
 
 
