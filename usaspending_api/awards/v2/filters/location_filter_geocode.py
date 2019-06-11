@@ -243,10 +243,11 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
 
     search_after = None
     while True:
+        logger.debug("ES STARTING REQUEST (_search) with body: {}".format(search_body))
         result = es_client_query(body=search_body, index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), retries=5)
         if result and result["hits"]["total"] and result["hits"]["hits"]:
-            logger.debug("Streaming batch of {} transaction hits from Elasticsearch "
-                        "for city, state, country = {}, {}, {}".format(page_size, city, state_code, country_code))
+            logger.debug("ES RECEIVED RESPONSE: Streaming batch of {} transaction hits from Elasticsearch "
+                         "for city, state, country = {}, {}, {}".format(page_size, city, state_code, country_code))
             yield from (TempEsTransactionHit(award_id=hit["_source"]["award_id"],
                                              transaction_id=hit["_source"]["transaction_id"])
                         for hit in result["hits"]["hits"])

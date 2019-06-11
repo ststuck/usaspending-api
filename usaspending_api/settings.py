@@ -252,20 +252,20 @@ LOGGING = {
             'formatter': 'user_readable'
         },
         'console_file': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.handlers.WatchedFileHandler',
             'filename': os.path.join(BASE_DIR, 'usaspending_api/logs/console.log'),
-            'formatter': 'specifics'
+            'formatter': 'simpletime'
         },
         'console': {
-            'level': 'INFO',
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'simpletime'
         },
     },
     'loggers': {
         '': {
-            'handlers': ['console', 'server'],
+            'handlers': ['console', 'server', 'console_file'],
             'level': 'DEBUG',
             'propagate': False,
         },
@@ -280,7 +280,7 @@ LOGGING = {
             'propagate': False,
         },
         'elasticsearch': {
-            'handlers': ['console', 'server'],
+            'handlers': ['console', 'server', 'console_file'],
             'level': 'INFO',
             'propagate': False,
         }
