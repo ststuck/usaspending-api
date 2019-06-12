@@ -182,6 +182,7 @@ def get_record_ids_by_city(
     Craft an elasticsearch query to return award ids by city or an empty list
     if there were no matches.
     """
+
     # Search using a "filter" instead of a "query" to leverage ES caching
     query = {
         "bool": {
@@ -218,33 +219,98 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
     Craft an elasticsearch query to return award ids by city or an empty list
     if there were no matches.
     """
-    # Search using a "filter" instead of a "query" to leverage ES caching
-    query = {
-        "bool": {
-            "must": [
-                {"match": {"{}_city_name.keyword".format(scope): es_sanitize(city).upper()}},
-                {"match": {"{}_country_code".format(scope): es_sanitize(country_code)}},
-            ]
-        }
+    must_criteria = {
+        "must": [
+            {"match": {"{}_city_name.keyword".format(scope): es_sanitize(city).upper()}},
+            {"match": {"{}_country_code".format(scope): es_sanitize(country_code)}},
+        ]
     }
     if state_code:
         # If a state was provided, include it in the filter to limit hits
-        query["bool"]["must"].append({"match": {"{}_state_code".format(scope): es_sanitize(state_code).upper()}})
+        must_criteria["must"].append({"match": {"{}_state_code".format(scope): es_sanitize(state_code).upper()}})
 
+    # Search using a "filter" instead of a "query" to leverage ES caching
     search_body = {
         "_source": ["award_id", "transaction_id"],
-        "size": page_size,
-        "query": query,
-        "sort": [
-            {"award_id": "asc"},
-            {"transaction_id": "asc"}
-        ]
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": {
+                    "bool": must_criteria
+                }
+            }
+        }
     }
+    paging_strategy = "partition"
+    aggs = _get_city_search_aggregation(paging_strategy, "transaction_id", search_body, page_size)
+    if aggs:
+        search_body["aggs"] = aggs
 
-    logger.debug("Start streaming Elasticsearch results for city, state, country "
-                 "= {}, {}, {}".format(city, state_code, country_code))
+    logger.debug("Start streaming Elasticsearch results using paging strategy [{}] for city, state, country "
+                 "= {}, {}, {}".format(paging_strategy, city, state_code, country_code))
     #yield from _yield_query_results_with_search_after(search_body)
-    yield from es_scan(index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), body=search_body, batch_size=page_size)
+    #yield from _yield_query_results_with_scroll(page_size, search_body)
+    yield from _yield_query_results_with_partition(search_body)
+
+
+def _get_city_search_aggregation(paging_strategy, desired_id_field, search_body, page_size=10000):
+    if paging_strategy == "search_after" or paging_strategy == "scroll": return {}
+    elif paging_strategy == "partition":
+        cardinality_agg = {
+            "total_hit_count": {
+                "cardinality": {
+                    "field": desired_id_field
+                }
+            }
+        }
+        total_hit_query = search_body.copy()
+        total_hit_query["aggs"] = cardinality_agg
+        total_hit_result = es_client_query(body=total_hit_query,
+                                           index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT),
+                                           retries=5)
+        total_hit_count = total_hit_result["aggregations"]["total_hit_count"]["value"]
+        # +1 to round up the fraction and +1 more because cardinality counts aren't precise.
+        num_partitions = (total_hit_count // page_size) + 3
+
+        return {
+                "id_groups": {
+                    "terms": {
+                        "field": desired_id_field,
+                        "size": page_size,
+                        "include": {
+                            "partition": 0,
+                            "num_partitions": num_partitions
+                        },
+                    }
+                }
+            }
+    else:
+        raise ValueError("Unrecognized paging strategy")
+
+
+def _yield_query_results_with_partition(search_body):
+    had_values = False
+    page_size = search_body["aggs"]["id_groups"]["terms"]["size"]
+    num_partitions = search_body["aggs"]["id_groups"]["terms"]["include"]["num_partitions"]
+    for partition in range(0, num_partitions):
+        search_body["aggs"]["id_groups"]["terms"]["include"]["partition"] = partition
+        logger.debug("ES STARTING REQUEST (_search) with body: {}".format(search_body))
+        result = es_client_query(body=search_body, index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), retries=5)
+        if result and result["aggregations"]["id_groups"]["buckets"]:
+            had_values = True
+            logger.debug("ES RECEIVED RESPONSE: Streaming batch of {} "
+                         "transaction hits from Elasticsearch".format(page_size))
+            yield from (TempEsTransactionHit(award_id=hit["key"],
+                                             transaction_id=hit["key"])
+                        for hit in result["aggregations"]["id_groups"]["buckets"])
+    if not had_values:
+        logger.info("No transaction hits from Elasticsearch for search")
+
+
+def _yield_query_results_with_scroll(page_size, search_body):
+    for hit in es_scan(index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), body=search_body, batch_size=page_size):
+        yield TempEsTransactionHit(award_id=hit["_source"]["award_id"],
+                                   transaction_id=hit["_source"]["transaction_id"])
 
 
 def _yield_query_results_with_search_after(search_body):

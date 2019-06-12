@@ -58,11 +58,13 @@ class TempEsTransactionHitViewSet(APIView):
         TempEsTransactionHitManager.create_temp_table()
         # TempEsTransactionHitManager.add_es_hits_orm(dummy_hits)
         #build_temp_es_transaction_hits_by_city("recipient_location", "PLEASANTVILLE", "USA", es_batch_size=1000)
-        build_temp_es_transaction_hits_by_city("recipient_location", "WASHINGTON", "USA")
+        build_temp_es_transaction_hits_by_city(scope="recipient_location", city="WASHINGTON", state_code="DC",
+                                               country_code="USA")
         TempEsTransactionHitManager.index_temp_table()
 
-        hits = [(hit.award_id, hit.transaction_id) for hit in TempEsTransactionHit.objects.all()]
-        return Response(hits)
+        hits = [(hit.award_id, hit.transaction_id) for hit in TempEsTransactionHit.objects.all()[:250]]
+        results = (TempEsTransactionHit.objects.count(), hits)
+        return Response(results)
 
 
 class TransactionViewSet(APIDocumentationView):

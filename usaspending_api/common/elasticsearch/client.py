@@ -65,8 +65,14 @@ def es_scan(index, body, timeout="1m", batch_size=1000):
                      "Creating global client instance")
         create_es_client()
 
+        seconds_per_unit = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+        if timeout[-1] not in seconds_per_unit:
+            raise ValueError("Cannot parse this timeout format. Use one of {}".format(seconds_per_unit.keys()))
+        request_timeout = int(timeout[:-1]) * seconds_per_unit[timeout[-1]]
+
         yield from scan(client=CLIENT, index=index, query=body, scroll=timeout, size=batch_size,
-                        request_timeout=timeout)
+                        request_timeout=request_timeout)
+
 
 def _es_search(index, body, timeout):
     error_template = "[ERROR] ({type}) with ElasticSearch cluster: {e}"
