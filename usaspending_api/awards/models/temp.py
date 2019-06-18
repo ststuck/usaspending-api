@@ -17,8 +17,7 @@ TEMP_ES_TRANSACTION_HIT_TRANSACTION_ID_INDEX_NAME = "temp_es_transaction_idx"
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE = 5000
-
+DEFAULT_CHUNK_SIZE = 5000
 
 class TempEsTransactionHitManager(models.Manager):
     @staticmethod
@@ -62,18 +61,18 @@ class TempEsTransactionHitManager(models.Manager):
         logger.info("loaded temp table")
 
     @staticmethod
-    def add_es_hits_orm(hits: List['TempEsTransactionHit']):
+    def add_es_hits_orm(hits: List['TempEsTransactionHit'], chunk_size=DEFAULT_CHUNK_SIZE):
         # Perform bulk insert in chunks.
         hits_iter = iter(hits)
-        chunk_of_hits = tuple(itertools.islice(hits_iter, CHUNK_SIZE))
+        chunk_of_hits = tuple(itertools.islice(hits_iter, chunk_size))
         chunk_num = 1
         while chunk_of_hits:
             logger.debug("    -> Streaming batch #{} with a size of {} "
                          "transaction hits into {} temp table".format(chunk_num,
-                                                                      CHUNK_SIZE,
+                                                                      chunk_size,
                                                                       TEMP_ES_TRANSACTION_HIT_TABLE_NAME))
             TempEsTransactionHit.objects.bulk_create(chunk_of_hits)
-            chunk_of_hits = tuple(itertools.islice(hits_iter, CHUNK_SIZE))
+            chunk_of_hits = tuple(itertools.islice(hits_iter, chunk_size))
             chunk_num = chunk_num + 1
 
 

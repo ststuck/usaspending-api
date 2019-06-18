@@ -5,7 +5,7 @@ from django.db.models import Q
 from itertools import chain
 from typing import Optional, List
 
-from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTransactionHitManager
+from usaspending_api.awards.models.temp import TempEsTransactionHit, TempEsTransactionHitManager, DEFAULT_CHUNK_SIZE
 from usaspending_api.common.elasticsearch.client import es_client_query, es_scan
 from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.search.v2.elasticsearch_helper import es_sanitize
@@ -207,9 +207,10 @@ def get_record_ids_by_city(
 
 
 def build_temp_es_transaction_hits_by_city(scope: str, city: str, country_code: str,
-                                           state_code: Optional[str] = None, es_batch_size = 10000):
+                                           state_code: Optional[str] = None, es_batch_size=10000,
+                                           insert_chunk_size=DEFAULT_CHUNK_SIZE):
     hits = page_es_hits_by_city(scope, city, country_code, state_code, page_size=es_batch_size)
-    TempEsTransactionHitManager.add_es_hits_orm(hits)
+    TempEsTransactionHitManager.add_es_hits_orm(hits, chunk_size=insert_chunk_size)
 
 
 def page_es_hits_by_city(scope: str, city: str, country_code: str,
@@ -241,16 +242,24 @@ def page_es_hits_by_city(scope: str, city: str, country_code: str,
             }
         }
     }
-    paging_strategy = "partition"
+    paging_strategy = "search_after"
     aggs = _get_city_search_aggregation(paging_strategy, "transaction_id", search_body, page_size)
     if aggs:
         search_body["aggs"] = aggs
 
     logger.debug("Start streaming Elasticsearch results using paging strategy [{}] for city, state, country "
                  "= {}, {}, {}".format(paging_strategy, city, state_code, country_code))
-    #yield from _yield_query_results_with_search_after(search_body)
-    #yield from _yield_query_results_with_scroll(page_size, search_body)
-    yield from _yield_query_results_with_partition(search_body)
+    yield from _yield_es_hits(paging_strategy, search_body, page_size)
+
+
+def _yield_es_hits(paging_strategy, search_body, page_size=None):
+    if paging_strategy == "search_after":
+        search_body["sort"] = search_body["_source"]
+        yield from _yield_query_results_with_search_after(page_size, search_body)
+    elif paging_strategy == "scroll":
+        yield from _yield_query_results_with_scroll(page_size, search_body)
+    elif paging_strategy == "partition":
+        yield from _yield_query_results_with_partition(search_body)
 
 
 def _get_city_search_aggregation(paging_strategy, desired_id_field, search_body, page_size=10000):
@@ -313,9 +322,9 @@ def _yield_query_results_with_scroll(page_size, search_body):
                                    transaction_id=hit["_source"]["transaction_id"])
 
 
-def _yield_query_results_with_search_after(search_body):
+def _yield_query_results_with_search_after(page_size, search_body):
     search_after = None
-    page_size = search_body.get("size", "[default]")
+    search_body["size"] = page_size
     while True:
         logger.debug("ES STARTING REQUEST (_search) with body: {}".format(search_body))
         result = es_client_query(body=search_body, index="{}*".format(settings.TRANSACTIONS_INDEX_ROOT), retries=5)
