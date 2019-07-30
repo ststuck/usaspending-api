@@ -36,7 +36,7 @@ class TestRoute53CnamesPocViewSet(APIView):
         with connection.cursor() as cursor:
             # Create temp table, that clears its data after each transaction
             cursor.execute("SELECT CURRENT_USER usr, inet_server_addr() ip, inet_server_port() port;")
-            db_rows = cursor.fetchall()[0][0]
+            db_rows = cursor.fetchall()[0]
         logger.info("Received database response of: {}".format(db_rows))
 
         return Response(db_rows)
