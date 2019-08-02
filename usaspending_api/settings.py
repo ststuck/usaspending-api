@@ -7,23 +7,17 @@ from django.utils.crypto import get_random_string
 import dj_database_url
 import os
 import sys
+from config.config_reader import fetch_configuration
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# User-specified limit on downloads should not be permitted beyond this
-MAX_DOWNLOAD_LIMIT = 500000
+for var, settting in fetch_configuration().items():
+    globals()[var.upper()] = settting
 
-# User-specified timeout limit for streaming downloads
-DOWNLOAD_TIMEOUT_MIN_LIMIT = 10
-
-# Default timeout for SQL statements in Django. Set to 5 min (in seconds).
-DEFAULT_DB_TIMEOUT_IN_SECONDS = os.environ.get("DEFAULT_DB_TIMEOUT_IN_SECONDS") or 0
-CONNECTION_MAX_SECONDS = 10
-
-API_MAX_DATE = "2020-09-30"  # End of FY2020
-API_MIN_DATE = "2000-10-01"  # Beginning of FY2001
-API_SEARCH_MIN_DATE = "2007-10-01"  # Beginning of FY2008
+for var in globals():
+    if var.endswith("PATH") and "S3" not in var:
+        globals()[var] = os.path.join(BASE_DIR, globals()[var])
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
@@ -31,41 +25,8 @@ API_SEARCH_MIN_DATE = "2007-10-01"  # Beginning of FY2008
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = get_random_string()
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
-
 ALLOWED_HOSTS = ["*"]
 
-# Define local flag to affect location of downloads
-IS_LOCAL = True
-
-# AWS Region for USAspending Infrastructure
-USASPENDING_AWS_REGION = ""
-if not USASPENDING_AWS_REGION:
-    USASPENDING_AWS_REGION = os.environ.get("USASPENDING_AWS_REGION")
-
-# AWS locations for CSV files
-CSV_LOCAL_PATH = os.path.join(BASE_DIR, "csv_downloads", "")
-DOWNLOAD_ENV = ""
-BULK_DOWNLOAD_LOCAL_PATH = os.path.join(BASE_DIR, "bulk_downloads", "")
-
-BULK_DOWNLOAD_S3_BUCKET_NAME = ""
-BULK_DOWNLOAD_S3_REDIRECT_DIR = "generated_downloads"
-BULK_DOWNLOAD_SQS_QUEUE_NAME = ""
-MONTHLY_DOWNLOAD_S3_BUCKET_NAME = ""
-MONTHLY_DOWNLOAD_S3_REDIRECT_DIR = "award_data_archive"
-BROKER_AGENCY_BUCKET_NAME = ""
-FPDS_BUCKET_NAME = ""
-if not FPDS_BUCKET_NAME:
-    FPDS_BUCKET_NAME = os.environ.get("FPDS_BUCKET_NAME")
-DELETED_TRANSACTIONS_S3_BUCKET_NAME = ""
-if not DELETED_TRANSACTIONS_S3_BUCKET_NAME:
-    DELETED_TRANSACTIONS_S3_BUCKET_NAME = os.environ.get("DELETED_TRANSACTIONS_S3_BUCKET_NAME")
-STATE_DATA_BUCKET = ""
-if not STATE_DATA_BUCKET:
-    STATE_DATA_BUCKET = os.environ.get("STATE_DATA_BUCKET")
-
-ROSETTA_DICT_S3_PATH = "da-public-files/user_reference_docs/DATA Transparency Crosswalk.xlsx"
 DATA_DICTIONARY_DOWNLOAD_URL = "https://files{}.usaspending.gov/docs/DATA+Transparency+Crosswalk.xlsx".format(
     "-nonprod" if DOWNLOAD_ENV != "production" else ""
 )

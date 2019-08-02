@@ -1,0 +1,52 @@
+---
+# ------------------------------------------------------------------------------
+# BASE configuration file which can be overwritten by other yaml config files
+# To override:
+#    Create new YAML file in this dir
+#    Set APP_CONFIG_YAML to a comma-separated list of yaml filenames by order of precedence
+#    [least -> highest] (expectation is to start value with "base.yaml,")
+#    Example: export APP_CONFIG_YAML="base.yaml,dev.yaml"
+# ------------------------------------------------------------------------------
+
+
+max_download_limit: 500000
+
+# user-specified timeout limit for streaming downloads
+download_timeout_min_limit: 10
+
+# default timeout for sql statements in django. set to 5 min (in seconds).
+default_db_timeout_in_seconds: 0
+connection_max_seconds: 10
+
+api_max_date: "2020-09-30"  # end of fy2020
+api_min_date: "2000-10-01"  # beginning of fy2001
+api_search_min_date: "2007-10-01"  # beginning of fy2008
+
+# quick-start development settings - unsuitable for production
+# see https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
+
+# security warning: don't run with debug turned on in production!
+debug: false
+
+# define local flag to affect location of downloads
+is_local: true
+
+# AWS Region for USAspending Infrastructure
+USASPENDING_AWS_REGION: ""
+
+# AWS locations for CSV files
+csv_local_path: "csv_downloads"
+download_env: ""
+bulk_download_local_path: "bulk_downloads"
+
+bulk_download_s3_bucket_name: ""
+bulk_download_s3_redirect_dir: "generated_downloads"
+bulk_download_sqs_queue_name: ""
+monthly_download_s3_bucket_name: ""
+monthly_download_s3_redirect_dir: "award_data_archive"
+broker_agency_bucket_name: ""
+fpds_bucket_name: ""
+
+deleted_transactions_s3_bucket_name: ""
+state_data_bucket: ""
+rosetta_dict_s3_path: "da-public-files/user_reference_docs/DATA Transparency Crosswalk.xlsx"
