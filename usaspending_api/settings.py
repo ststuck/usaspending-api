@@ -25,92 +25,18 @@ for var in globals():
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = get_random_string()
 
-ALLOWED_HOSTS = ["*"]
-
-DATA_DICTIONARY_DOWNLOAD_URL = "https://files{}.usaspending.gov/docs/DATA+Transparency+Crosswalk.xlsx".format(
-    "-nonprod" if DOWNLOAD_ENV != "production" else ""
-)
-IDV_DOWNLOAD_README_FILE_PATH = os.path.join(BASE_DIR, "usaspending_api/data/idv_download_readme.txt")
-
-# Elasticsearch
-ES_HOSTNAME = ""
-if not ES_HOSTNAME:
-    ES_HOSTNAME = os.environ.get("ES_HOSTNAME")
-TRANSACTIONS_INDEX_ROOT = os.environ.get("ES_TRX_ROOT") or "future-transactions"
-ES_TIMEOUT = 30
-ES_REPOSITORY = ""
+if DOWNLOAD_ENV != "production":
+    DATA_DICTIONARY_DOWNLOAD_URL = DATA_DICTIONARY_DOWNLOAD_URLS[0]
+else:
+    DATA_DICTIONARY_DOWNLOAD_URL = DATA_DICTIONARY_DOWNLOAD_URLS[1]
 
 # Application definition
-
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "django.contrib.postgres",
-    "debug_toolbar",
-    "django_extensions",
-    "rest_framework",
-    "corsheaders",
-    "rest_framework_tracking",
-    "usaspending_api.common",
-    "usaspending_api.etl",
-    "usaspending_api.references",
-    "usaspending_api.awards",
-    "usaspending_api.accounts",
-    "usaspending_api.submissions",
-    "usaspending_api.financial_activities",
-    "usaspending_api.api_docs",
-    "usaspending_api.broker",
-    "usaspending_api.download",
-    "usaspending_api.bulk_download",
-    "usaspending_api.recipient",
-    "django_spaghetti",
-    "simple_history",
-]
 
 INTERNAL_IPS = ()
 
 DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG}
 
-MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "simple_history.middleware.HistoryRequestMiddleware",
-    "usaspending_api.common.logging.LoggingMiddleware",
-]
 
-ROOT_URLCONF = "usaspending_api.urls"
-
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": ["usaspending_api/templates"],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ]
-        },
-    }
-]
-
-WSGI_APPLICATION = "usaspending_api.wsgi.application"
-
-# CORS Settings
-CORS_ORIGIN_ALLOW_ALL = True  # Temporary while in development
 
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
@@ -134,20 +60,7 @@ if os.environ.get("DB_SOURCE") or os.environ.get("DB_R1"):
 if os.environ.get("DATA_BROKER_DATABASE_URL") and not sys.argv[1:2] == ["test"]:
     DATABASES["data_broker"] = dj_database_url.parse(
         os.environ.get("DATA_BROKER_DATABASE_URL"), conn_max_age=CONNECTION_MAX_SECONDS
-    )
-
-
-# Password validation
-# https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
-
-API_VERSION = 2
+)
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
@@ -160,22 +73,6 @@ REST_FRAMEWORK = {
         "usaspending_api.common.renderers.BrowsableAPIRendererWithoutForms",
     ),
 }
-
-# Internationalization
-# https://docs.djangoproject.com/en/1.11/topics/i18n/
-
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
-USE_I18N = True
-USE_L10N = True
-USE_TZ = True
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/1.11/howto/static-files/
-
-STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "usaspending_api/static/")
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "usaspending_api/static_doc_files"),)
 
 LOGGING = {
     "version": 1,

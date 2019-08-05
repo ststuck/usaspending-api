@@ -8,15 +8,28 @@
 #    Example: export APP_CONFIG_YAML="base.yaml,dev.yaml"
 # ------------------------------------------------------------------------------
 
+# security warning: don't run with debug turned on in production!
+debug: false
+
+# define local flag to affect location of downloads
+is_local: true
+
+api_version: 2
+
+tony.example.config: 42
+
 
 max_download_limit: 500000
 
 # user-specified timeout limit for streaming downloads
 download_timeout_min_limit: 10
 
-# default timeout for sql statements in django. set to 5 min (in seconds).
-default_db_timeout_in_seconds: 0
+# default timeout for sql statements in django. set to 5 min in milliseconds (sec * 1000).
+&ddtim default_db_timeout_in_ms: 0
 connection_max_seconds: 10
+default_db_options:
+  OPTIONS:
+    options: -c statement_timeout=*ddtim
 
 api_max_date: "2020-09-30"  # end of fy2020
 api_min_date: "2000-10-01"  # beginning of fy2001
@@ -25,20 +38,21 @@ api_search_min_date: "2007-10-01"  # beginning of fy2008
 # quick-start development settings - unsuitable for production
 # see https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
-# security warning: don't run with debug turned on in production!
-debug: false
 
-# define local flag to affect location of downloads
-is_local: true
+
+# Elasticsearch
+es_hostname: ""
+transactions_index_root: "future-transactions"
+es_timeout: 30
+es_repository: ""
 
 # AWS Region for USAspending Infrastructure
-USASPENDING_AWS_REGION: ""
+usaspending_aws_region: ""
 
 # AWS locations for CSV files
 csv_local_path: "csv_downloads"
 download_env: ""
 bulk_download_local_path: "bulk_downloads"
-
 bulk_download_s3_bucket_name: ""
 bulk_download_s3_redirect_dir: "generated_downloads"
 bulk_download_sqs_queue_name: ""
@@ -47,6 +61,101 @@ monthly_download_s3_redirect_dir: "award_data_archive"
 broker_agency_bucket_name: ""
 fpds_bucket_name: ""
 
+data_dictionary_download_urls:
+  - "https://files.usaspending.gov/docs/DATA+Transparency+Crosswalk.xlsx"
+  - "https://files-nonprod.usaspending.gov/docs/DATA+Transparency+Crosswalk.xlsx"
+
+
+
 deleted_transactions_s3_bucket_name: ""
 state_data_bucket: ""
 rosetta_dict_s3_path: "da-public-files/user_reference_docs/DATA Transparency Crosswalk.xlsx"
+idv_download_readme_file_path: "usaspending_api/data/idv_download_readme.txt"
+
+middleware:
+  - "corsheaders.middleware.CorsMiddleware"
+  - "debug_toolbar.middleware.DebugToolbarMiddleware"
+  - "django.middleware.security.SecurityMiddleware"
+  - "django.contrib.sessions.middleware.SessionMiddleware"
+  - "django.middleware.common.CommonMiddleware"
+  - "django.middleware.csrf.CsrfViewMiddleware"
+  - "django.contrib.auth.middleware.AuthenticationMiddleware"
+  - "django.contrib.messages.middleware.MessageMiddleware"
+  - "django.middleware.clickjacking.XFrameOptionsMiddleware"
+  - "simple_history.middleware.HistoryRequestMiddleware"
+  - "usaspending_api.common.logging.LoggingMiddleware"
+
+allowed_hosts:
+  - "*"
+
+installed_apps:
+  - "django.contrib.admin"
+  - "django.contrib.auth"
+  - "django.contrib.contenttypes"
+  - "django.contrib.sessions"
+  - "django.contrib.messages"
+  - "django.contrib.staticfiles"
+  - "django.contrib.postgres"
+  - "debug_toolbar"
+  - "django_extensions"
+  - "rest_framework"
+  - "corsheaders"
+  - "rest_framework_tracking"
+  - "usaspending_api.common"
+  - "usaspending_api.etl"
+  - "usaspending_api.references"
+  - "usaspending_api.awards"
+  - "usaspending_api.accounts"
+  - "usaspending_api.submissions"
+  - "usaspending_api.financial_activities"
+  - "usaspending_api.api_docs"
+  - "usaspending_api.broker"
+  - "usaspending_api.download"
+  - "usaspending_api.bulk_download"
+  - "usaspending_api.recipient"
+  - "django_spaghetti"
+  - "simple_history"
+
+root_urlconf: "usaspending_api.urls"
+
+wsgi_application: "usaspending_api.wsgi.application"
+
+# CORS Settings "Temporary while in development"
+cors_origin_allow_all: True
+
+# Password validation
+# https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
+auth_password_validators:
+  - "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+  - "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"
+  - "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"
+  - "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"
+
+# Internationalization
+# https://docs.djangoproject.com/en/1.11/topics/i18n/
+language_code: "en-us"
+time_zone: "UTC"
+use_i18n: True
+use_l10n: True
+use_tz: True
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/1.11/howto/static-files/
+static_url: "/static/"
+static_root_path: "usaspending_api/static/"
+
+
+templates:
+  -
+    BACKEND: "django.template.backends.django.DjangoTemplates"
+    DIRS:
+      - "usaspending_api/templates"
+    APP_DIRS: true
+    OPTIONS:
+      context_processors:
+        - "django.template.context_processors.debug"
+        - "django.template.context_processors.request"
+        - "django.contrib.auth.context_processors.auth"
+        - "django.contrib.messages.context_processors.messages"
+
+...

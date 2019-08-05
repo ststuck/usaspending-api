@@ -51,7 +51,7 @@ urlpatterns = [
     url(r"^api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     url(r"^docs/", include("usaspending_api.api_docs.urls")),
     url(r"^status/", views.StatusView.as_view()),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT_PATH)
 
 
 if settings.DEBUG:
