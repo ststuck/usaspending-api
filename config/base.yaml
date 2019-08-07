@@ -24,12 +24,11 @@ max_download_limit: 500000
 # user-specified timeout limit for streaming downloads
 download_timeout_min_limit: 10
 
-# default timeout for sql statements in django. set to 5 min in milliseconds (sec * 1000).
-&ddtim default_db_timeout_in_ms: 0
 connection_max_seconds: 10
+# default timeout for sql statements in django in milliseconds (sec * 1000).
 default_db_options:
   OPTIONS:
-    options: -c statement_timeout=*ddtim
+    options: -c statement_timeout=0
 
 api_max_date: "2020-09-30"  # end of fy2020
 api_min_date: "2000-10-01"  # beginning of fy2001
