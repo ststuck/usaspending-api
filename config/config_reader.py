@@ -101,4 +101,8 @@ def convert_to_boolean(value) -> bool:
 if __name__ == "__main__":
     import json
     x = fetch_configuration()
-    print(json.dumps(x, sort_keys=True, indent=4))
+    try:
+        print(json.dumps(x, sort_keys=True, indent=4))
+    except TypeError as e:
+        print(x)
+        print("Issue dumping to JSON: {}".format(e))

@@ -157,4 +157,49 @@ templates:
         - "django.contrib.auth.context_processors.auth"
         - "django.contrib.messages.context_processors.messages"
 
+
+# Django spaghetti-and-meatballs (entity relationship diagram) settings
+spaghetti_sauce:
+  apps:
+      - "accounts"
+      - "awards"
+      - "financial_activities"
+      - "references"
+      - "submissions"
+      - "recipient"
+  show_fields: false
+  exclude: {}
+  show_proxy: false
+
+# DRF extensions
+rest_framework_extensions:
+    # Not caching errors, these are logged to exceptions.log
+    DEFAULT_CACHE_ERRORS: false
+    # Default cache is usaspending-cache, which is set above based upon environment
+    DEFAULT_USE_CACHE: "usaspending-cache"
+    DEFAULT_CACHE_KEY_FUNC: "usaspending_api.common.cache.usaspending_key_func"
+
+
+# If caches added or renamed, edit clear_caches in usaspending_api/etl/helpers.py
+caches:
+  default:
+    BACKEND: "django.core.cache.backends.locmem.LocMemCache"
+    LOCATION: "default-loc-mem-cache"
+  locations:
+    BACKEND: "django.core.cache.backends.locmem.LocMemCache"
+    LOCATION: "locations-loc-mem-cache"
+
+# Cache environment - 'local', 'disabled', or 'elasticache'
+cache_environment: "disabled"
+
+
+rest_framework:
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    DEFAULT_PERMISSION_CLASSES: ["rest_framework.permissions.AllowAny"]
+    DEFAULT_PAGINATION_CLASS: "usaspending_api.common.pagination.UsaspendingPagination"
+    DEFAULT_RENDERER_CLASSES:
+      - "rest_framework.renderers.JSONRenderer"
+      - "usaspending_api.common.renderers.DocumentApiRenderer"
+      - "usaspending_api.common.renderers.BrowsableAPIRendererWithoutForms"
 ...

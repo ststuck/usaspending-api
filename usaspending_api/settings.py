@@ -36,15 +36,11 @@ INTERNAL_IPS = ()
 
 DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG}
 
-
-
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
 
 # import an environment variable, DATABASE_URL
 # see https://github.com/kennethreitz/dj-database-url for more info
-
-DEFAULT_DB_OPTIONS = {"OPTIONS": {"options": "-c statement_timeout={0}".format(DEFAULT_DB_TIMEOUT_IN_SECONDS * 1000)}}
 
 DATABASES = {"default": {**dj_database_url.config(conn_max_age=CONNECTION_MAX_SECONDS), **DEFAULT_DB_OPTIONS}}
 
@@ -62,17 +58,6 @@ if os.environ.get("DATA_BROKER_DATABASE_URL") and not sys.argv[1:2] == ["test"]:
         os.environ.get("DATA_BROKER_DATABASE_URL"), conn_max_age=CONNECTION_MAX_SECONDS
 )
 
-REST_FRAMEWORK = {
-    # Use Django's standard `django.contrib.auth` permissions,
-    # or allow read-only access for unauthenticated users.
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
-    "DEFAULT_PAGINATION_CLASS": "usaspending_api.common.pagination.UsaspendingPagination",
-    "DEFAULT_RENDERER_CLASSES": (
-        "rest_framework.renderers.JSONRenderer",
-        "usaspending_api.common.renderers.DocumentApiRenderer",
-        "usaspending_api.common.renderers.BrowsableAPIRendererWithoutForms",
-    ),
-}
 
 LOGGING = {
     "version": 1,
@@ -111,16 +96,6 @@ LOGGING = {
     },
 }
 
-
-# If caches added or renamed, edit clear_caches in usaspending_api/etl/helpers.py
-CACHES = {
-    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "default-loc-mem-cache"},
-    "locations": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "locations-loc-mem-cache"},
-}
-
-# Cache environment - 'local', 'disabled', or 'elasticache'
-CACHE_ENVIRONMENT = "disabled"
-
 # Set up the appropriate elasticache for our environment
 CACHE_ENVIRONMENTS = {
     # Elasticache settings are changed during deployment, or can be set manually
@@ -140,20 +115,3 @@ CACHE_ENVIRONMENTS = {
 
 # Set the usaspending-cache to whatever our environment cache dictates
 CACHES["usaspending-cache"] = CACHE_ENVIRONMENTS[CACHE_ENVIRONMENT]
-
-# DRF extensions
-REST_FRAMEWORK_EXTENSIONS = {
-    # Not caching errors, these are logged to exceptions.log
-    "DEFAULT_CACHE_ERRORS": False,
-    # Default cache is usaspending-cache, which is set above based upon environment
-    "DEFAULT_USE_CACHE": "usaspending-cache",
-    "DEFAULT_CACHE_KEY_FUNC": "usaspending_api.common.cache.usaspending_key_func",
-}
-
-# Django spaghetti-and-meatballs (entity relationship diagram) settings
-SPAGHETTI_SAUCE = {
-    "apps": ["accounts", "awards", "financial_activities", "references", "submissions", "recipient"],
-    "show_fields": False,
-    "exclude": {},
-    "show_proxy": False,
-}
