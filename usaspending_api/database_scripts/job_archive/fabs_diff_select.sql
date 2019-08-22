@@ -5,12 +5,12 @@ SELECT
     usaspending.afa_generated_unique AS "broker_derived_unique_key",
     concat(usaspending.fain, usaspending.uri) AS "piid_fain_uri",
     usaspending.unique_award_key,
-    usaspending.action_date,
-    usaspending.modified_at AS "record_last_modified",
-    broker.created_at AS "broker_record_create",
-    broker.updated_at AS "broker_record_update",
-    transaction_normalized.create_date AS "usaspending_record_create",
-    transaction_normalized.update_date AS "usaspending_record_update"
+    usaspending.action_date::date,
+    usaspending.modified_at::date AS "record_last_modified",
+    broker.created_at::timestamp with time zone AS "broker_record_create",
+    broker.updated_at::timestamp with time zone AS "broker_record_update",
+    transaction_normalized.create_date::timestamp with time zone AS "usaspending_record_create",
+    transaction_normalized.update_date::timestamp with time zone AS "usaspending_record_update"
 FROM transaction_fabs AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN
