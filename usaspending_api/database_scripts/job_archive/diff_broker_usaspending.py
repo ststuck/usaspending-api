@@ -47,6 +47,7 @@ GLOBALS = {
     "script_dir": Path(__file__).resolve().parent,
     "usaspending_db": os.environ["DATABASE_URL"],
     "broker_db": os.environ["DATA_BROKER_DATABASE_URL"],
+    "transaction_types": ["fabs", "fpds"],
 }
 
 
@@ -76,9 +77,8 @@ class Timer:
 
 def main():
     logger.info("STARTING SCRIPT")
-    steps = ["fabs", "fpds"]
     verify_or_create_table()
-    for step in steps:
+    for step in GLOBALS["transaction_types"]:
         logger.info("Running: {}".format(step))
         GLOBALS[step]["sql"] = read_sql(step)
         runner(step)
@@ -174,10 +174,13 @@ if __name__ == "__main__":
     parser.add_argument("--chunk-size", type=int, default=GLOBALS["chunk_size"])
     parser.add_argument("--create-indexes", action="store_true")
     parser.add_argument("--recreate-table", action="store_true")
+    parser.add_argument("--one-type", choices=['fpds', 'fabs'])
     args = parser.parse_args()
 
     GLOBALS["chunk_size"] = args.chunk_size
     GLOBALS["drop_table"] = args.recreate_table
     GLOBALS["run_indexes"] = args.create_indexes
+    if args.one_type:
+        GLOBALS["transaction_types"] = [args.one_type]
 
     main()
