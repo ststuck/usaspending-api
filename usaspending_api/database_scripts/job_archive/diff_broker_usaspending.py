@@ -5,6 +5,7 @@ import os
 import psycopg2
 import time
 
+from pathlib import Path
 
 CREATE_TEMP_TABLE = """
 CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
@@ -40,7 +41,11 @@ FROM
 GLOBALS = {
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
-    "script": {"chunk_size": 100000, "temp_table": "temp_dev_3319_problematic_transactions"},
+    "script": {
+        "chunk_size": 100000,
+        "temp_table": "temp_dev_3319_problematic_transactions",
+        "script_dir": Path(__file__).resolve().parent,
+    },
 }
 
 
@@ -86,7 +91,8 @@ def verify_or_create_table():
 
 
 def read_sql(transaction_type):
-    with open(GLOBALS[transaction_type]["diff_sql_file"], "r") as f:
+    p = Path(GLOBALS["script"]["script_dir"]).joinpath(GLOBALS[transaction_type]["diff_sql_file"])
+    with p.open() as f:
         return "".join(f.readlines())
 
 
