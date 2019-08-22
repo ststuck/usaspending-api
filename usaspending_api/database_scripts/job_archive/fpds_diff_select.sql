@@ -14,11 +14,11 @@ SELECT
 FROM transaction_fpds AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN
-    (
+(
     SELECT * FROM dblink (
         'broker_server',
         'SELECT * FROM detached_award_procurement WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
-    ) AS broker(
+    ) AS broker (
         created_at TIMESTAMP WITHOUT time ZONE,
         updated_at TIMESTAMP WITHOUT time ZONE,
         detached_award_procurement_id int,
@@ -321,9 +321,9 @@ INNER JOIN
         high_comp_officer5_amount text,
         high_comp_officer5_full_na text,
         additional_reporting text
-        )
-    ) AS broker ON (
-        (broker.detached_award_procurement_id = usaspending.detached_award_procurement_id)
+    )
+) AS broker ON (
+    (broker.detached_award_procurement_id = usaspending.detached_award_procurement_id)
     AND (
         (broker.piid IS DISTINCT FROM usaspending.piid)
         OR (broker.detached_award_proc_unique IS DISTINCT FROM usaspending.detached_award_proc_unique)

@@ -7,6 +7,7 @@ import time
 
 from pathlib import Path
 
+
 CREATE_TEMP_TABLE = """
 CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
     system text,
@@ -27,7 +28,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
 GET_MIN_MAX_FABS_SQL_STRING = """
 SELECT
     MIN(published_award_financial_assistance_id), MAX(published_award_financial_assistance_id)
-from
+FROM
     published_award_financial_assistance
 """
 
@@ -41,7 +42,7 @@ FROM
 GLOBALS = {
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
-    "chunk_size": 100000,
+    "chunk_size": 250000,
     "temp_table": "temp_dev_3319_problematic_transactions",
     "script_dir": Path(__file__).resolve().parent,
     "usaspending_db": os.environ["DATABASE_URL"],
@@ -74,6 +75,7 @@ class Timer:
 
 
 def main():
+    logger.info("STARTING SCRIPT")
     steps = ["fabs", "fpds"]
     verify_or_create_table()
     for step in steps:
@@ -128,17 +130,14 @@ def runner(transaction_type):
                 table=GLOBALS["temp_table"], sql=func_config["sql"].format(minid=_min, maxid=_max)
             )
 
+            log("Processing records with IDs ({:,} => {:,})".format(_min, _max), transaction_type)
             with Timer() as chunk_timer:
-                log("Processing records with IDs ({:,} => {:,})".format(_min, _max), transaction_type)
-
                 with connection.cursor() as cursor:
                     cursor.execute(query)
-
                 connection.commit()
 
             log("---> Iteration Duration: {}".format(chunk_timer.elapsed_as_string), transaction_type)
             log("---> Est. Completion: {}".format(chunk_timer.estimated_remaining_runtime(progress)), transaction_type)
-
             # Move to next chunk
             _min = _max + 1
 
@@ -146,7 +145,6 @@ def runner(transaction_type):
 
 
 def create_indexes():
-    table = GLOBALS["temp_table"]
     indexes = [
         "CREATE INDEX IF NOT EXISTS ix_{table}_action_date ON {table} USING BTREE(action_date, system) WITH (fillfactor=99)",
         "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(broker_record_create) WITH (fillfactor=99)",
@@ -160,7 +158,7 @@ def create_indexes():
     with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
         with connection.cursor() as cursor:
             for index in indexes:
-                sql = index.format(table=table)
+                sql = index.format(table=GLOBALS["temp_table"])
                 log("running '{}'".format(sql))
                 cursor.execute(sql)
 
@@ -171,6 +169,7 @@ if __name__ == "__main__":
     ls = logging.StreamHandler()
     ls.setFormatter(logging.Formatter("[%(asctime)s] <%(levelname)s> %(message)s", datefmt="%Y/%m/%d %H:%M:%S %z (%Z)"))
     logger.addHandler(ls)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--chunk-size", type=int, default=GLOBALS["chunk_size"])
     parser.add_argument("--create-indexes", action="store_true")
@@ -181,5 +180,4 @@ if __name__ == "__main__":
     GLOBALS["drop_table"] = args.recreate_table
     GLOBALS["run_indexes"] = args.create_indexes
 
-    logger.info("STARTING SCRIPT")
     main()
