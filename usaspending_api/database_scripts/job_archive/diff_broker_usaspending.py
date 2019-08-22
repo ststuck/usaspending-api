@@ -41,11 +41,11 @@ FROM
 GLOBALS = {
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
-    "script": {
-        "chunk_size": 100000,
-        "temp_table": "temp_dev_3319_problematic_transactions",
-        "script_dir": Path(__file__).resolve().parent,
-    },
+    "chunk_size": 100000,
+    "temp_table": "temp_dev_3319_problematic_transactions",
+    "script_dir": Path(__file__).resolve().parent,
+    "usaspending_db": os.environ["DATABASE_URL"],
+    "broker_db": os.environ["DATA_BROKER_DATABASE_URL"],
 }
 
 
@@ -81,17 +81,20 @@ def main():
         GLOBALS[step]["sql"] = read_sql(step)
         runner(step)
 
+    if GLOBALS["run_indexes"]:
+        create_indexes()
+
 
 def verify_or_create_table():
-    with psycopg2.connect(dsn=os.environ["DATABASE_URL"]) as connection:
+    with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
         with connection.cursor() as cursor:
-            if GLOBALS["script"]["drop_table"]:
-                cursor.execute("DROP TABLE IF EXISTS {}".format(GLOBALS["script"]["temp_table"]))
-            cursor.execute(CREATE_TEMP_TABLE.format(table=GLOBALS["script"]["temp_table"]))
+            if GLOBALS["drop_table"]:
+                cursor.execute("DROP TABLE IF EXISTS {}".format(GLOBALS["temp_table"]))
+            cursor.execute(CREATE_TEMP_TABLE.format(table=GLOBALS["temp_table"]))
 
 
 def read_sql(transaction_type):
-    p = Path(GLOBALS["script"]["script_dir"]).joinpath(GLOBALS[transaction_type]["diff_sql_file"])
+    p = Path(GLOBALS["script_dir"]).joinpath(GLOBALS[transaction_type]["diff_sql_file"])
     with p.open() as f:
         return "".join(f.readlines())
 
@@ -105,7 +108,7 @@ def log(msg, transaction_type=None):
 
 def runner(transaction_type):
     func_config = GLOBALS[transaction_type]
-    with psycopg2.connect(dsn=os.environ["DATA_BROKER_DATABASE_URL"]) as connection:
+    with psycopg2.connect(dsn=GLOBALS["broker_db"]) as connection:
         with connection.cursor() as cursor:
             cursor.execute(func_config["min_max_sql"])
             results = cursor.fetchall()
@@ -116,13 +119,13 @@ def runner(transaction_type):
             log("Max Published_Award_Financial_Assistance_ID: {:,}".format(max_id), transaction_type)
             log("=====> IDs in range: {:,} <=====".format(total), transaction_type)
 
-    with psycopg2.connect(dsn=os.environ["DATABASE_URL"]) as connection:
+    with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
         _min = min_id
         while _min <= max_id:
-            _max = min(_min + GLOBALS["script"]["chunk_size"] - 1, max_id)
+            _max = min(_min + GLOBALS["chunk_size"] - 1, max_id)
             progress = (_max - min_id + 1) / total
             query = "INSERT INTO {table} {sql}".format(
-                table=GLOBALS["script"]["temp_table"], sql=func_config["sql"].format(minid=_min, maxid=_max)
+                table=GLOBALS["temp_table"], sql=func_config["sql"].format(minid=_min, maxid=_max)
             )
 
             with Timer() as chunk_timer:
@@ -142,21 +145,41 @@ def runner(transaction_type):
     log("Completed exection on {}".format(transaction_type), transaction_type)
 
 
+def create_indexes():
+    table = GLOBALS["temp_table"]
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS ix_{table}_action_date ON {table} USING BTREE(action_date, system) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(broker_record_create) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(piid_fain_uri, system) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(usaspending_record_create) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_modified ON {table} USING BTREE(broker_record_update) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_modified ON {table} USING BTREE(usaspending_record_update) WITH (fillfactor=99)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_{table}_transaction_id ON {table} USING BTREE(transaction_id) WITH (fillfactor=99)",
+    ]
+
+    with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
+        with connection.cursor() as cursor:
+            for index in indexes:
+                sql = index.format(table=table)
+                log("running '{}'".format(sql))
+                cursor.execute(sql)
+
+
 if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     ls = logging.StreamHandler()
-    ls.setFormatter(
-        logging.Formatter("[%(asctime)s] <%(levelname)s> %(message)s", datefmt="%Y/%m/%d %H:%M:%S.%f %z (%Z)")
-    )
+    ls.setFormatter(logging.Formatter("[%(asctime)s] <%(levelname)s> %(message)s", datefmt="%Y/%m/%d %H:%M:%S %z (%Z)"))
     logger.addHandler(ls)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chunk-size", type=int, default=GLOBALS["script"]["chunk_size"])
+    parser.add_argument("--chunk-size", type=int, default=GLOBALS["chunk_size"])
+    parser.add_argument("--create-indexes", action="store_true")
     parser.add_argument("--recreate-table", action="store_true")
     args = parser.parse_args()
 
-    GLOBALS["script"]["chunk_size"] = args.chunk_size
-    GLOBALS["script"]["drop_table"] = args.recreate_table
+    GLOBALS["chunk_size"] = args.chunk_size
+    GLOBALS["drop_table"] = args.recreate_table
+    GLOBALS["run_indexes"] = args.create_indexes
 
     logger.info("STARTING SCRIPT")
     main()
