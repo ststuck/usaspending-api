@@ -7,10 +7,10 @@ SELECT
     usaspending.unique_award_key,
     usaspending.action_date::date,
     usaspending.modified_at::date AS "record_last_modified",
-    broker.created_at::TIMESTAMP WITH time ZONE AS "broker_record_create",
-    broker.updated_at::TIMESTAMP WITH time ZONE AS "broker_record_update",
-    transaction_normalized.create_date::TIMESTAMP WITH time ZONE AS "usaspending_record_create",
-    transaction_normalized.update_date::TIMESTAMP WITH time ZONE AS "usaspending_record_update"
+    broker.created_at::TIMESTAMP WITHOUT TIME ZONE AS "broker_record_create",
+    broker.updated_at::TIMESTAMP WITHOUT TIME ZONE AS "broker_record_update",
+    transaction_normalized.create_date::TIMESTAMP WITH TIME ZONE AS "usaspending_record_create",
+    transaction_normalized.update_date::TIMESTAMP WITH TIME ZONE AS "usaspending_record_update"
 FROM transaction_fabs AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN
@@ -19,8 +19,8 @@ INNER JOIN
         'broker_server',
         'SELECT * FROM published_award_financial_assistance WHERE published_award_financial_assistance_id BETWEEN {minid} AND {maxid}'
     ) AS broker(
-        created_at TIMESTAMP WITHOUT time ZONE,
-        updated_at TIMESTAMP WITHOUT time ZONE,
+        created_at TIMESTAMP WITHOUT TIME ZONE,
+        updated_at TIMESTAMP WITHOUT TIME ZONE,
         published_award_financial_assistance_id integer,
         action_date text,
         action_type text,
@@ -80,7 +80,7 @@ INNER JOIN
         legal_entity_county_name text,
         legal_entity_state_code text,
         legal_entity_state_name text,
-        modified_at TIMESTAMP WITHOUT time ZONE,
+        modified_at TIMESTAMP WITHOUT TIME ZONE,
         afa_generated_unique text,
         is_active boolean,
         awarding_office_name text,
@@ -118,7 +118,9 @@ INNER JOIN
 ) AS broker ON (
     (broker.published_award_financial_assistance_id = usaspending.published_award_financial_assistance_id)
     AND (
-        (broker.action_date IS DISTINCT FROM usaspending.action_date)
+         (broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE)
+        OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE)
+        OR (broker.action_date IS DISTINCT FROM usaspending.action_date)
         OR (broker.action_type IS DISTINCT FROM usaspending.action_type)
         OR (broker.assistance_type IS DISTINCT FROM usaspending.assistance_type)
         OR (broker.award_description IS DISTINCT FROM usaspending.award_description)
@@ -129,7 +131,8 @@ INNER JOIN
         OR (broker.awarding_sub_tier_agency_c IS DISTINCT FROM usaspending.awarding_sub_tier_agency_c)
         OR (broker.award_modification_amendme IS DISTINCT FROM usaspending.award_modification_amendme)
         OR (broker.business_funds_indicator IS DISTINCT FROM usaspending.business_funds_indicator)
-        OR (broker.cfda_number IS DISTINCT FROM usaspending.business_types)
+        OR (broker.business_types IS DISTINCT FROM usaspending.business_types)
+        OR (broker.cfda_number IS DISTINCT FROM usaspending.cfda_number)
         OR (broker.correction_delete_indicatr IS DISTINCT FROM usaspending.correction_delete_indicatr)
         OR (broker.face_value_loan_guarantee IS DISTINCT FROM usaspending.face_value_loan_guarantee)
         OR (broker.fain IS DISTINCT FROM usaspending.fain)
@@ -198,5 +201,15 @@ INNER JOIN
         OR (broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti)
         OR (broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide)
         OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
+        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount::text)
+        OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
+        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount::text)
+        OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name)
+        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount::text)
+        OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name)
+        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount::text)
+        OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name)
+        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount::text)
+        OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name)
     )
 )

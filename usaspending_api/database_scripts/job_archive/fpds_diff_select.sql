@@ -335,7 +335,7 @@ INNER JOIN
         OR (broker.parent_award_id IS DISTINCT FROM usaspending.parent_award_id)
         OR (broker.award_modification_amendme IS DISTINCT FROM usaspending.award_modification_amendme)
         OR (broker.type_of_contract_pricing IS DISTINCT FROM usaspending.type_of_contract_pricing)
-        OR (broker.type_of_contract_pric_desc IS DISTINCT FROM usaspending.type_of_contract_pricing)
+        OR (broker.type_of_contract_pric_desc IS DISTINCT FROM usaspending.type_of_contract_pric_desc)
         OR (broker.contract_award_type IS DISTINCT FROM usaspending.contract_award_type)
         OR (broker.contract_award_type_desc IS DISTINCT FROM usaspending.contract_award_type_desc)
         OR (broker.naics IS DISTINCT FROM usaspending.naics)
