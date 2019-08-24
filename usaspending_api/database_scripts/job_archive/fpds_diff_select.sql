@@ -1,5 +1,5 @@
 SELECT
-    'fpds'::TEXT as "system",
+    'fpds' as "system",
     usaspending.transaction_id,
     usaspending.detached_award_procurement_id AS "broker_surrogate_id",
     usaspending.detached_award_proc_unique AS "broker_derived_unique_key",
@@ -17,7 +17,306 @@ INNER JOIN
 (
     SELECT * FROM dblink (
         'broker_server',
-        'SELECT * FROM detached_award_procurement WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
+        'SELECT
+created_at::TIMESTAMP WITHOUT TIME ZONE,
+updated_at::TIMESTAMP WITHOUT TIME ZONE,
+UPPER(piid) AS piid,
+UPPER(detached_award_proc_unique) AS detached_award_proc_unique,
+UPPER(agency_id) AS agency_id,
+UPPER(awarding_sub_tier_agency_c) AS awarding_sub_tier_agency_c,
+UPPER(awarding_sub_tier_agency_n) AS awarding_sub_tier_agency_n,
+UPPER(awarding_agency_code) AS awarding_agency_code,
+UPPER(awarding_agency_name) AS awarding_agency_name,
+UPPER(parent_award_id) AS parent_award_id,
+UPPER(award_modification_amendme) AS award_modification_amendme,
+UPPER(type_of_contract_pricing) AS type_of_contract_pricing,
+UPPER(type_of_contract_pric_desc) AS type_of_contract_pric_desc,
+UPPER(contract_award_type) AS contract_award_type,
+UPPER(contract_award_type_desc) AS contract_award_type_desc,
+UPPER(naics) AS naics,
+UPPER(naics_description) AS naics_description,
+UPPER(awardee_or_recipient_uniqu) AS awardee_or_recipient_uniqu,
+UPPER(ultimate_parent_legal_enti) AS ultimate_parent_legal_enti,
+UPPER(ultimate_parent_unique_ide) AS ultimate_parent_unique_ide,
+UPPER(award_description) AS award_description,
+UPPER(place_of_performance_zip4a) AS place_of_performance_zip4a,
+UPPER(place_of_perform_city_name) AS place_of_perform_city_name,
+UPPER(place_of_perform_county_na) AS place_of_perform_county_na,
+UPPER(place_of_performance_congr) AS place_of_performance_congr,
+UPPER(awardee_or_recipient_legal) AS awardee_or_recipient_legal,
+UPPER(legal_entity_city_name) AS legal_entity_city_name,
+UPPER(legal_entity_state_code) AS legal_entity_state_code,
+UPPER(legal_entity_state_descrip) AS legal_entity_state_descrip,
+UPPER(legal_entity_zip4) AS legal_entity_zip4,
+UPPER(legal_entity_congressional) AS legal_entity_congressional,
+UPPER(legal_entity_address_line1) AS legal_entity_address_line1,
+UPPER(legal_entity_address_line2) AS legal_entity_address_line2,
+UPPER(legal_entity_address_line3) AS legal_entity_address_line3,
+UPPER(legal_entity_country_code) AS legal_entity_country_code,
+UPPER(legal_entity_country_name) AS legal_entity_country_name,
+UPPER(period_of_performance_star) AS period_of_performance_star,
+UPPER(period_of_performance_curr) AS period_of_performance_curr,
+UPPER(period_of_perf_potential_e) AS period_of_perf_potential_e,
+UPPER(ordering_period_end_date) AS ordering_period_end_date,
+UPPER(action_date) AS action_date,
+UPPER(action_type) AS action_type,
+UPPER(action_type_description) AS action_type_description,
+federal_action_obligation AS federal_action_obligation,
+UPPER(current_total_value_award) AS current_total_value_award,
+UPPER(potential_total_value_awar) AS potential_total_value_awar,
+UPPER(funding_sub_tier_agency_co) AS funding_sub_tier_agency_co,
+UPPER(funding_sub_tier_agency_na) AS funding_sub_tier_agency_na,
+UPPER(funding_office_code) AS funding_office_code,
+UPPER(funding_office_name) AS funding_office_name,
+UPPER(awarding_office_code) AS awarding_office_code,
+UPPER(awarding_office_name) AS awarding_office_name,
+UPPER(referenced_idv_agency_iden) AS referenced_idv_agency_iden,
+UPPER(referenced_idv_agency_desc) AS referenced_idv_agency_desc,
+UPPER(funding_agency_code) AS funding_agency_code,
+UPPER(funding_agency_name) AS funding_agency_name,
+UPPER(place_of_performance_locat) AS place_of_performance_locat,
+UPPER(place_of_performance_state) AS place_of_performance_state,
+UPPER(place_of_perfor_state_desc) AS place_of_perfor_state_desc,
+UPPER(place_of_perform_country_c) AS place_of_perform_country_c,
+UPPER(place_of_perf_country_desc) AS place_of_perf_country_desc,
+UPPER(idv_type) AS idv_type,
+UPPER(idv_type_description) AS idv_type_description,
+UPPER(referenced_idv_type) AS referenced_idv_type,
+UPPER(referenced_idv_type_desc) AS referenced_idv_type_desc,
+UPPER(vendor_doing_as_business_n) AS vendor_doing_as_business_n,
+UPPER(vendor_phone_number) AS vendor_phone_number,
+UPPER(vendor_fax_number) AS vendor_fax_number,
+UPPER(multiple_or_single_award_i) AS multiple_or_single_award_i,
+UPPER(multiple_or_single_aw_desc) AS multiple_or_single_aw_desc,
+UPPER(referenced_mult_or_single) AS referenced_mult_or_single,
+UPPER(referenced_mult_or_si_desc) AS referenced_mult_or_si_desc,
+UPPER(type_of_idc) AS type_of_idc,
+UPPER(type_of_idc_description) AS type_of_idc_description,
+UPPER(a_76_fair_act_action) AS a_76_fair_act_action,
+UPPER(a_76_fair_act_action_desc) AS a_76_fair_act_action_desc,
+UPPER(dod_claimant_program_code) AS dod_claimant_program_code,
+UPPER(dod_claimant_prog_cod_desc) AS dod_claimant_prog_cod_desc,
+UPPER(clinger_cohen_act_planning) AS clinger_cohen_act_planning,
+UPPER(clinger_cohen_act_pla_desc) AS clinger_cohen_act_pla_desc,
+UPPER(commercial_item_acquisitio) AS commercial_item_acquisitio,
+UPPER(commercial_item_acqui_desc) AS commercial_item_acqui_desc,
+UPPER(commercial_item_test_progr) AS commercial_item_test_progr,
+UPPER(commercial_item_test_desc) AS commercial_item_test_desc,
+UPPER(consolidated_contract) AS consolidated_contract,
+UPPER(consolidated_contract_desc) AS consolidated_contract_desc,
+UPPER(contingency_humanitarian_o) AS contingency_humanitarian_o,
+UPPER(contingency_humanitar_desc) AS contingency_humanitar_desc,
+UPPER(contract_bundling) AS contract_bundling,
+UPPER(contract_bundling_descrip) AS contract_bundling_descrip,
+UPPER(contract_financing) AS contract_financing,
+UPPER(contract_financing_descrip) AS contract_financing_descrip,
+UPPER(contracting_officers_deter) AS contracting_officers_deter,
+UPPER(contracting_officers_desc) AS contracting_officers_desc,
+UPPER(cost_accounting_standards) AS cost_accounting_standards,
+UPPER(cost_accounting_stand_desc) AS cost_accounting_stand_desc,
+UPPER(cost_or_pricing_data) AS cost_or_pricing_data,
+UPPER(cost_or_pricing_data_desc) AS cost_or_pricing_data_desc,
+UPPER(country_of_product_or_serv) AS country_of_product_or_serv,
+UPPER(country_of_product_or_desc) AS country_of_product_or_desc,
+UPPER(construction_wage_rate_req) AS construction_wage_rate_req,
+UPPER(construction_wage_rat_desc) AS construction_wage_rat_desc,
+UPPER(evaluated_preference) AS evaluated_preference,
+UPPER(evaluated_preference_desc) AS evaluated_preference_desc,
+UPPER(extent_competed) AS extent_competed,
+UPPER(extent_compete_description) AS extent_compete_description,
+UPPER(fed_biz_opps) AS fed_biz_opps,
+UPPER(fed_biz_opps_description) AS fed_biz_opps_description,
+UPPER(foreign_funding) AS foreign_funding,
+UPPER(foreign_funding_desc) AS foreign_funding_desc,
+UPPER(government_furnished_prope) AS government_furnished_prope,
+UPPER(government_furnished_desc) AS government_furnished_desc,
+UPPER(information_technology_com) AS information_technology_com,
+UPPER(information_technolog_desc) AS information_technolog_desc,
+UPPER(interagency_contracting_au) AS interagency_contracting_au,
+UPPER(interagency_contract_desc) AS interagency_contract_desc,
+UPPER(local_area_set_aside) AS local_area_set_aside,
+UPPER(local_area_set_aside_desc) AS local_area_set_aside_desc,
+UPPER(major_program) AS major_program,
+UPPER(purchase_card_as_payment_m) AS purchase_card_as_payment_m,
+UPPER(purchase_card_as_paym_desc) AS purchase_card_as_paym_desc,
+UPPER(multi_year_contract) AS multi_year_contract,
+UPPER(multi_year_contract_desc) AS multi_year_contract_desc,
+UPPER(national_interest_action) AS national_interest_action,
+UPPER(national_interest_desc) AS national_interest_desc,
+UPPER(number_of_actions) AS number_of_actions,
+UPPER(number_of_offers_received) AS number_of_offers_received,
+UPPER(other_statutory_authority) AS other_statutory_authority,
+UPPER(performance_based_service) AS performance_based_service,
+UPPER(performance_based_se_desc) AS performance_based_se_desc,
+UPPER(place_of_manufacture) AS place_of_manufacture,
+UPPER(place_of_manufacture_desc) AS place_of_manufacture_desc,
+UPPER(price_evaluation_adjustmen) AS price_evaluation_adjustmen,
+UPPER(product_or_service_code) AS product_or_service_code,
+UPPER(product_or_service_co_desc) AS product_or_service_co_desc,
+UPPER(program_acronym) AS program_acronym,
+UPPER(other_than_full_and_open_c) AS other_than_full_and_open_c,
+UPPER(other_than_full_and_o_desc) AS other_than_full_and_o_desc,
+UPPER(recovered_materials_sustai) AS recovered_materials_sustai,
+UPPER(recovered_materials_s_desc) AS recovered_materials_s_desc,
+UPPER(research) AS research,
+UPPER(research_description) AS research_description,
+UPPER(sea_transportation) AS sea_transportation,
+UPPER(sea_transportation_desc) AS sea_transportation_desc,
+UPPER(labor_standards) AS labor_standards,
+UPPER(labor_standards_descrip) AS labor_standards_descrip,
+COALESCE(small_business_competitive::boolean, False) AS small_business_competitive,
+UPPER(solicitation_identifier) AS solicitation_identifier,
+UPPER(solicitation_procedures) AS solicitation_procedures,
+UPPER(solicitation_procedur_desc) AS solicitation_procedur_desc,
+UPPER(fair_opportunity_limited_s) AS fair_opportunity_limited_s,
+UPPER(fair_opportunity_limi_desc) AS fair_opportunity_limi_desc,
+UPPER(subcontracting_plan) AS subcontracting_plan,
+UPPER(subcontracting_plan_desc) AS subcontracting_plan_desc,
+UPPER(program_system_or_equipmen) AS program_system_or_equipmen,
+UPPER(program_system_or_equ_desc) AS program_system_or_equ_desc,
+UPPER(type_set_aside) AS type_set_aside,
+UPPER(type_set_aside_description) AS type_set_aside_description,
+UPPER(epa_designated_product) AS epa_designated_product,
+UPPER(epa_designated_produc_desc) AS epa_designated_produc_desc,
+UPPER(materials_supplies_article) AS materials_supplies_article,
+UPPER(materials_supplies_descrip) AS materials_supplies_descrip,
+UPPER(transaction_number) AS transaction_number,
+UPPER(sam_exception) AS sam_exception,
+UPPER(sam_exception_description) AS sam_exception_description,
+COALESCE(city_local_government::boolean, False) AS city_local_government,
+COALESCE(county_local_government::boolean, False) AS county_local_government,
+COALESCE(inter_municipal_local_gove::boolean, False) AS inter_municipal_local_gove,
+COALESCE(local_government_owned::boolean, False) AS local_government_owned,
+COALESCE(municipality_local_governm::boolean, False) AS municipality_local_governm,
+COALESCE(school_district_local_gove::boolean, False) AS school_district_local_gove,
+COALESCE(township_local_government::boolean, False) AS township_local_government,
+COALESCE(us_state_government::boolean, False) AS us_state_government,
+COALESCE(us_federal_government::boolean, False) AS us_federal_government,
+COALESCE(federal_agency::boolean, False) AS federal_agency,
+COALESCE(federally_funded_research::boolean, False) AS federally_funded_research,
+COALESCE(us_tribal_government::boolean, False) AS us_tribal_government,
+COALESCE(foreign_government::boolean, False) AS foreign_government,
+COALESCE(community_developed_corpor::boolean, False) AS community_developed_corpor,
+COALESCE(labor_surplus_area_firm::boolean, False) AS labor_surplus_area_firm,
+COALESCE(corporate_entity_not_tax_e::boolean, False) AS corporate_entity_not_tax_e,
+COALESCE(corporate_entity_tax_exemp::boolean, False) AS corporate_entity_tax_exemp,
+COALESCE(partnership_or_limited_lia::boolean, False) AS partnership_or_limited_lia,
+COALESCE(sole_proprietorship::boolean, False) AS sole_proprietorship,
+COALESCE(small_agricultural_coopera::boolean, False) AS small_agricultural_coopera,
+COALESCE(international_organization::boolean, False) AS international_organization,
+COALESCE(us_government_entity::boolean, False) AS us_government_entity,
+COALESCE(emerging_small_business::boolean, False) AS emerging_small_business,
+COALESCE(c8a_program_participant::boolean, False) AS c8a_program_participant,
+COALESCE(sba_certified_8_a_joint_ve::boolean, False) AS sba_certified_8_a_joint_ve,
+COALESCE(dot_certified_disadvantage::boolean, False) AS dot_certified_disadvantage,
+COALESCE(self_certified_small_disad::boolean, False) AS self_certified_small_disad,
+COALESCE(historically_underutilized::boolean, False) AS historically_underutilized,
+COALESCE(small_disadvantaged_busine::boolean, False) AS small_disadvantaged_busine,
+COALESCE(the_ability_one_program::boolean, False) AS the_ability_one_program,
+COALESCE(historically_black_college::boolean, False) AS historically_black_college,
+COALESCE(c1862_land_grant_college::boolean, False) AS c1862_land_grant_college,
+COALESCE(c1890_land_grant_college::boolean, False) AS c1890_land_grant_college,
+COALESCE(c1994_land_grant_college::boolean, False) AS c1994_land_grant_college,
+COALESCE(minority_institution::boolean, False) AS minority_institution,
+COALESCE(private_university_or_coll::boolean, False) AS private_university_or_coll,
+COALESCE(school_of_forestry::boolean, False) AS school_of_forestry,
+COALESCE(state_controlled_instituti::boolean, False) AS state_controlled_instituti,
+COALESCE(tribal_college::boolean, False) AS tribal_college,
+COALESCE(veterinary_college::boolean, False) AS veterinary_college,
+COALESCE(educational_institution::boolean, False) AS educational_institution,
+COALESCE(alaskan_native_servicing_i::boolean, False) AS alaskan_native_servicing_i,
+COALESCE(community_development_corp::boolean, False) AS community_development_corp,
+COALESCE(native_hawaiian_servicing::boolean, False) AS native_hawaiian_servicing,
+COALESCE(domestic_shelter::boolean, False) AS domestic_shelter,
+COALESCE(manufacturer_of_goods::boolean, False) AS manufacturer_of_goods,
+COALESCE(hospital_flag::boolean, False) AS hospital_flag,
+COALESCE(veterinary_hospital::boolean, False) AS veterinary_hospital,
+COALESCE(hispanic_servicing_institu::boolean, False) AS hispanic_servicing_institu,
+COALESCE(foundation::boolean, False) AS foundation,
+COALESCE(woman_owned_business::boolean, False) AS woman_owned_business,
+COALESCE(minority_owned_business::boolean, False) AS minority_owned_business,
+COALESCE(women_owned_small_business::boolean, False) AS women_owned_small_business,
+COALESCE(economically_disadvantaged::boolean, False) AS economically_disadvantaged,
+COALESCE(joint_venture_women_owned::boolean, False) AS joint_venture_women_owned,
+COALESCE(joint_venture_economically::boolean, False) AS joint_venture_economically,
+COALESCE(veteran_owned_business::boolean, False) AS veteran_owned_business,
+COALESCE(service_disabled_veteran_o::boolean, False) AS service_disabled_veteran_o,
+COALESCE(contracts::boolean, False) AS contracts,
+COALESCE(grants::boolean, False) AS grants,
+COALESCE(receives_contracts_and_gra::boolean, False) AS receives_contracts_and_gra,
+COALESCE(airport_authority::boolean, False) AS airport_authority,
+COALESCE(council_of_governments::boolean, False) AS council_of_governments,
+COALESCE(housing_authorities_public::boolean, False) AS housing_authorities_public,
+COALESCE(interstate_entity::boolean, False) AS interstate_entity,
+COALESCE(planning_commission::boolean, False) AS planning_commission,
+COALESCE(port_authority::boolean, False) AS port_authority,
+COALESCE(transit_authority::boolean, False) AS transit_authority,
+COALESCE(subchapter_s_corporation::boolean, False) AS subchapter_s_corporation,
+COALESCE(limited_liability_corporat::boolean, False) AS limited_liability_corporat,
+COALESCE(foreign_owned_and_located::boolean, False) AS foreign_owned_and_located,
+COALESCE(american_indian_owned_busi::boolean, False) AS american_indian_owned_busi,
+COALESCE(alaskan_native_owned_corpo::boolean, False) AS alaskan_native_owned_corpo,
+COALESCE(indian_tribe_federally_rec::boolean, False) AS indian_tribe_federally_rec,
+COALESCE(native_hawaiian_owned_busi::boolean, False) AS native_hawaiian_owned_busi,
+COALESCE(tribally_owned_business::boolean, False) AS tribally_owned_business,
+COALESCE(asian_pacific_american_own::boolean, False) AS asian_pacific_american_own,
+COALESCE(black_american_owned_busin::boolean, False) AS black_american_owned_busin,
+COALESCE(hispanic_american_owned_bu::boolean, False) AS hispanic_american_owned_bu,
+COALESCE(native_american_owned_busi::boolean, False) AS native_american_owned_busi,
+COALESCE(subcontinent_asian_asian_i::boolean, False) AS subcontinent_asian_asian_i,
+COALESCE(other_minority_owned_busin::boolean, False) AS other_minority_owned_busin,
+COALESCE(for_profit_organization::boolean, False) AS for_profit_organization,
+COALESCE(nonprofit_organization::boolean, False) AS nonprofit_organization,
+COALESCE(other_not_for_profit_organ::boolean, False) AS other_not_for_profit_organ,
+COALESCE(us_local_government::boolean, False) AS us_local_government,
+referenced_idv_modificatio AS referenced_idv_modificatio,
+UPPER(undefinitized_action) AS undefinitized_action,
+UPPER(undefinitized_action_desc) AS undefinitized_action_desc,
+UPPER(domestic_or_foreign_entity) AS domestic_or_foreign_entity,
+UPPER(domestic_or_foreign_e_desc) AS domestic_or_foreign_e_desc,
+UPPER(pulled_from) AS pulled_from,
+UPPER(last_modified) AS last_modified,
+UPPER(annual_revenue) AS annual_revenue,
+UPPER(division_name) AS division_name,
+UPPER(division_number_or_office) AS division_number_or_office,
+UPPER(number_of_employees) AS number_of_employees,
+UPPER(vendor_alternate_name) AS vendor_alternate_name,
+UPPER(vendor_alternate_site_code) AS vendor_alternate_site_code,
+UPPER(vendor_enabled) AS vendor_enabled,
+UPPER(vendor_legal_org_name) AS vendor_legal_org_name,
+UPPER(vendor_location_disabled_f) AS vendor_location_disabled_f,
+UPPER(vendor_site_code) AS vendor_site_code,
+UPPER(initial_report_date) AS initial_report_date,
+UPPER(base_and_all_options_value) AS base_and_all_options_value,
+UPPER(base_exercised_options_val) AS base_exercised_options_val,
+UPPER(total_obligated_amount) AS total_obligated_amount,
+UPPER(place_of_perform_country_n) AS place_of_perform_country_n,
+UPPER(place_of_perform_state_nam) AS place_of_perform_state_nam,
+UPPER(referenced_idv_agency_name) AS referenced_idv_agency_name,
+UPPER(award_or_idv_flag) AS award_or_idv_flag,
+UPPER(legal_entity_county_code) AS legal_entity_county_code,
+UPPER(legal_entity_county_name) AS legal_entity_county_name,
+UPPER(legal_entity_zip5) AS legal_entity_zip5,
+UPPER(legal_entity_zip_last4) AS legal_entity_zip_last4,
+UPPER(place_of_perform_county_co) AS place_of_perform_county_co,
+UPPER(place_of_performance_zip5) AS place_of_performance_zip5,
+UPPER(place_of_perform_zip_last4) AS place_of_perform_zip_last4,
+UPPER(cage_code) AS cage_code,
+UPPER(inherently_government_func) AS inherently_government_func,
+UPPER(organizational_type) AS organizational_type,
+UPPER(inherently_government_desc) AS inherently_government_desc,
+UPPER(unique_award_key) AS unique_award_key,
+high_comp_officer1_amount,
+UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
+high_comp_officer2_amount,
+UPPER(high_comp_officer2_full_na) AS high_comp_officer2_full_na,
+high_comp_officer3_amount,
+UPPER(high_comp_officer3_full_na) AS high_comp_officer3_full_na,
+high_comp_officer4_amount,
+UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
+high_comp_officer5_amount,
+UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
+FROM detached_award_procurement WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
     ) AS broker (
         created_at TIMESTAMP WITHOUT time ZONE,
         updated_at TIMESTAMP WITHOUT time ZONE,
@@ -166,7 +465,7 @@ INNER JOIN
         sea_transportation_desc text,
         labor_standards text,
         labor_standards_descrip text,
-        small_business_competitive text,
+        small_business_competitive boolean,
         solicitation_identifier text,
         solicitation_procedures text,
         solicitation_procedur_desc text,
@@ -185,92 +484,92 @@ INNER JOIN
         transaction_number text,
         sam_exception text,
         sam_exception_description text,
-        city_local_government text,
-        county_local_government text,
-        inter_municipal_local_gove text,
-        local_government_owned text,
-        municipality_local_governm text,
-        school_district_local_gove text,
-        township_local_government text,
-        us_state_government text,
-        us_federal_government text,
-        federal_agency text,
-        federally_funded_research text,
-        us_tribal_government text,
-        foreign_government text,
-        community_developed_corpor text,
-        labor_surplus_area_firm text,
-        corporate_entity_not_tax_e text,
-        corporate_entity_tax_exemp text,
-        partnership_or_limited_lia text,
-        sole_proprietorship text,
-        small_agricultural_coopera text,
-        international_organization text,
-        us_government_entity text,
-        emerging_small_business text,
-        c8a_program_participant text,
-        sba_certified_8_a_joint_ve text,
-        dot_certified_disadvantage text,
-        self_certified_small_disad text,
-        historically_underutilized text,
-        small_disadvantaged_busine text,
-        the_ability_one_program text,
-        historically_black_college text,
-        c1862_land_grant_college text,
-        c1890_land_grant_college text,
-        c1994_land_grant_college text,
-        minority_institution text,
-        private_university_or_coll text,
-        school_of_forestry text,
-        state_controlled_instituti text,
-        tribal_college text,
-        veterinary_college text,
-        educational_institution text,
-        alaskan_native_servicing_i text,
-        community_development_corp text,
-        native_hawaiian_servicing text,
-        domestic_shelter text,
-        manufacturer_of_goods text,
-        hospital_flag text,
-        veterinary_hospital text,
-        hispanic_servicing_institu text,
-        foundation text,
-        woman_owned_business text,
-        minority_owned_business text,
-        women_owned_small_business text,
-        economically_disadvantaged text,
-        joint_venture_women_owned text,
-        joint_venture_economically text,
-        veteran_owned_business text,
-        service_disabled_veteran_o text,
-        contracts text,
-        grants text,
-        receives_contracts_and_gra text,
-        airport_authority text,
-        council_of_governments text,
-        housing_authorities_public text,
-        interstate_entity text,
-        planning_commission text,
-        port_authority text,
-        transit_authority text,
-        subchapter_s_corporation text,
-        limited_liability_corporat text,
-        foreign_owned_and_located text,
-        american_indian_owned_busi text,
-        alaskan_native_owned_corpo text,
-        indian_tribe_federally_rec text,
-        native_hawaiian_owned_busi text,
-        tribally_owned_business text,
-        asian_pacific_american_own text,
-        black_american_owned_busin text,
-        hispanic_american_owned_bu text,
-        native_american_owned_busi text,
-        subcontinent_asian_asian_i text,
-        other_minority_owned_busin text,
-        for_profit_organization text,
-        nonprofit_organization text,
-        other_not_for_profit_organ text,
-        us_local_government text,
+        city_local_government boolean,
+        county_local_government boolean,
+        inter_municipal_local_gove boolean,
+        local_government_owned boolean,
+        municipality_local_governm boolean,
+        school_district_local_gove boolean,
+        township_local_government boolean,
+        us_state_government boolean,
+        us_federal_government boolean,
+        federal_agency boolean,
+        federally_funded_research boolean,
+        us_tribal_government boolean,
+        foreign_government boolean,
+        community_developed_corpor boolean,
+        labor_surplus_area_firm boolean,
+        corporate_entity_not_tax_e boolean,
+        corporate_entity_tax_exemp boolean,
+        partnership_or_limited_lia boolean,
+        sole_proprietorship boolean,
+        small_agricultural_coopera boolean,
+        international_organization boolean,
+        us_government_entity boolean,
+        emerging_small_business boolean,
+        c8a_program_participant boolean,
+        sba_certified_8_a_joint_ve boolean,
+        dot_certified_disadvantage boolean,
+        self_certified_small_disad boolean,
+        historically_underutilized boolean,
+        small_disadvantaged_busine boolean,
+        the_ability_one_program boolean,
+        historically_black_college boolean,
+        c1862_land_grant_college boolean,
+        c1890_land_grant_college boolean,
+        c1994_land_grant_college boolean,
+        minority_institution boolean,
+        private_university_or_coll boolean,
+        school_of_forestry boolean,
+        state_controlled_instituti boolean,
+        tribal_college boolean,
+        veterinary_college boolean,
+        educational_institution boolean,
+        alaskan_native_servicing_i boolean,
+        community_development_corp boolean,
+        native_hawaiian_servicing boolean,
+        domestic_shelter boolean,
+        manufacturer_of_goods boolean,
+        hospital_flag boolean,
+        veterinary_hospital boolean,
+        hispanic_servicing_institu boolean,
+        foundation boolean,
+        woman_owned_business boolean,
+        minority_owned_business boolean,
+        women_owned_small_business boolean,
+        economically_disadvantaged boolean,
+        joint_venture_women_owned boolean,
+        joint_venture_economically boolean,
+        veteran_owned_business boolean,
+        service_disabled_veteran_o boolean,
+        contracts boolean,
+        grants boolean,
+        receives_contracts_and_gra boolean,
+        airport_authority boolean,
+        council_of_governments boolean,
+        housing_authorities_public boolean,
+        interstate_entity boolean,
+        planning_commission boolean,
+        port_authority boolean,
+        transit_authority boolean,
+        subchapter_s_corporation boolean,
+        limited_liability_corporat boolean,
+        foreign_owned_and_located boolean,
+        american_indian_owned_busi boolean,
+        alaskan_native_owned_corpo boolean,
+        indian_tribe_federally_rec boolean,
+        native_hawaiian_owned_busi boolean,
+        tribally_owned_business boolean,
+        asian_pacific_american_own boolean,
+        black_american_owned_busin boolean,
+        hispanic_american_owned_bu boolean,
+        native_american_owned_busi boolean,
+        subcontinent_asian_asian_i boolean,
+        other_minority_owned_busin boolean,
+        for_profit_organization boolean,
+        nonprofit_organization boolean,
+        other_not_for_profit_organ boolean,
+        us_local_government boolean,
         referenced_idv_modificatio text,
         undefinitized_action text,
         undefinitized_action_desc text,
@@ -471,7 +770,7 @@ INNER JOIN
         OR (broker.sea_transportation_desc IS DISTINCT FROM usaspending.sea_transportation_desc)
         OR (broker.labor_standards IS DISTINCT FROM usaspending.labor_standards)
         OR (broker.labor_standards_descrip IS DISTINCT FROM usaspending.labor_standards_descrip)
-        OR (broker.small_business_competitive IS DISTINCT FROM usaspending.small_business_competitive::text)
+        OR (broker.small_business_competitive IS DISTINCT FROM usaspending.small_business_competitive)
         OR (broker.solicitation_identifier IS DISTINCT FROM usaspending.solicitation_identifier)
         OR (broker.solicitation_procedures IS DISTINCT FROM usaspending.solicitation_procedures)
         OR (broker.solicitation_procedur_desc IS DISTINCT FROM usaspending.solicitation_procedur_desc)
@@ -490,92 +789,92 @@ INNER JOIN
         OR (broker.transaction_number IS DISTINCT FROM usaspending.transaction_number)
         OR (broker.sam_exception IS DISTINCT FROM usaspending.sam_exception)
         OR (broker.sam_exception_description IS DISTINCT FROM usaspending.sam_exception_description)
-        OR (broker.city_local_government IS DISTINCT FROM usaspending.city_local_government::text)
-        OR (broker.county_local_government IS DISTINCT FROM usaspending.county_local_government::text)
-        OR (broker.inter_municipal_local_gove IS DISTINCT FROM usaspending.inter_municipal_local_gove::text)
-        OR (broker.local_government_owned IS DISTINCT FROM usaspending.local_government_owned::text)
-        OR (broker.municipality_local_governm IS DISTINCT FROM usaspending.municipality_local_governm::text)
-        OR (broker.school_district_local_gove IS DISTINCT FROM usaspending.school_district_local_gove::text)
-        OR (broker.township_local_government IS DISTINCT FROM usaspending.township_local_government::text)
-        OR (broker.us_state_government IS DISTINCT FROM usaspending.us_state_government::text)
-        OR (broker.us_federal_government IS DISTINCT FROM usaspending.us_federal_government::text)
-        OR (broker.federal_agency IS DISTINCT FROM usaspending.federal_agency::text)
-        OR (broker.federally_funded_research IS DISTINCT FROM usaspending.federally_funded_research::text)
-        OR (broker.us_tribal_government IS DISTINCT FROM usaspending.us_tribal_government::text)
-        OR (broker.foreign_government IS DISTINCT FROM usaspending.foreign_government::text)
-        OR (broker.community_developed_corpor IS DISTINCT FROM usaspending.community_developed_corpor::text)
-        OR (broker.labor_surplus_area_firm IS DISTINCT FROM usaspending.labor_surplus_area_firm::text)
-        OR (broker.corporate_entity_not_tax_e IS DISTINCT FROM usaspending.corporate_entity_not_tax_e::text)
-        OR (broker.corporate_entity_tax_exemp IS DISTINCT FROM usaspending.corporate_entity_tax_exemp::text)
-        OR (broker.partnership_or_limited_lia IS DISTINCT FROM usaspending.partnership_or_limited_lia::text)
-        OR (broker.sole_proprietorship IS DISTINCT FROM usaspending.sole_proprietorship::text)
-        OR (broker.small_agricultural_coopera IS DISTINCT FROM usaspending.small_agricultural_coopera::text)
-        OR (broker.international_organization IS DISTINCT FROM usaspending.international_organization::text)
-        OR (broker.us_government_entity IS DISTINCT FROM usaspending.us_government_entity::text)
-        OR (broker.emerging_small_business IS DISTINCT FROM usaspending.emerging_small_business::text)
-        OR (broker.c8a_program_participant IS DISTINCT FROM usaspending.c8a_program_participant::text)
-        OR (broker.sba_certified_8_a_joint_ve IS DISTINCT FROM usaspending.sba_certified_8_a_joint_ve::text)
-        OR (broker.dot_certified_disadvantage IS DISTINCT FROM usaspending.dot_certified_disadvantage::text)
-        OR (broker.self_certified_small_disad IS DISTINCT FROM usaspending.self_certified_small_disad::text)
-        OR (broker.historically_underutilized IS DISTINCT FROM usaspending.historically_underutilized::text)
-        OR (broker.small_disadvantaged_busine IS DISTINCT FROM usaspending.small_disadvantaged_busine::text)
-        OR (broker.the_ability_one_program IS DISTINCT FROM usaspending.the_ability_one_program::text)
-        OR (broker.historically_black_college IS DISTINCT FROM usaspending.historically_black_college::text)
-        OR (broker.c1862_land_grant_college IS DISTINCT FROM usaspending.c1862_land_grant_college::text)
-        OR (broker.c1890_land_grant_college IS DISTINCT FROM usaspending.c1890_land_grant_college::text)
-        OR (broker.c1994_land_grant_college IS DISTINCT FROM usaspending.c1994_land_grant_college::text)
-        OR (broker.minority_institution IS DISTINCT FROM usaspending.minority_institution::text)
-        OR (broker.private_university_or_coll IS DISTINCT FROM usaspending.private_university_or_coll::text)
-        OR (broker.school_of_forestry IS DISTINCT FROM usaspending.school_of_forestry::text)
-        OR (broker.state_controlled_instituti IS DISTINCT FROM usaspending.state_controlled_instituti::text)
-        OR (broker.tribal_college IS DISTINCT FROM usaspending.tribal_college::text)
-        OR (broker.veterinary_college IS DISTINCT FROM usaspending.veterinary_college::text)
-        OR (broker.educational_institution IS DISTINCT FROM usaspending.educational_institution::text)
-        OR (broker.alaskan_native_servicing_i IS DISTINCT FROM usaspending.alaskan_native_servicing_i::text)
-        OR (broker.community_development_corp IS DISTINCT FROM usaspending.community_development_corp::text)
-        OR (broker.native_hawaiian_servicing IS DISTINCT FROM usaspending.native_hawaiian_servicing::text)
-        OR (broker.domestic_shelter IS DISTINCT FROM usaspending.domestic_shelter::text)
-        OR (broker.manufacturer_of_goods IS DISTINCT FROM usaspending.manufacturer_of_goods::text)
-        OR (broker.hospital_flag IS DISTINCT FROM usaspending.hospital_flag::text)
-        OR (broker.veterinary_hospital IS DISTINCT FROM usaspending.veterinary_hospital::text)
-        OR (broker.hispanic_servicing_institu IS DISTINCT FROM usaspending.hispanic_servicing_institu::text)
-        OR (broker.foundation IS DISTINCT FROM usaspending.foundation::text)
-        OR (broker.woman_owned_business IS DISTINCT FROM usaspending.woman_owned_business::text)
-        OR (broker.minority_owned_business IS DISTINCT FROM usaspending.minority_owned_business::text)
-        OR (broker.women_owned_small_business IS DISTINCT FROM usaspending.women_owned_small_business::text)
-        OR (broker.economically_disadvantaged IS DISTINCT FROM usaspending.economically_disadvantaged::text)
-        OR (broker.joint_venture_women_owned IS DISTINCT FROM usaspending.joint_venture_women_owned::text)
-        OR (broker.joint_venture_economically IS DISTINCT FROM usaspending.joint_venture_economically::text)
-        OR (broker.veteran_owned_business IS DISTINCT FROM usaspending.veteran_owned_business::text)
-        OR (broker.service_disabled_veteran_o IS DISTINCT FROM usaspending.service_disabled_veteran_o::text)
-        OR (broker.contracts IS DISTINCT FROM usaspending.contracts::text)
-        OR (broker.grants IS DISTINCT FROM usaspending.grants::text)
-        OR (broker.receives_contracts_and_gra IS DISTINCT FROM usaspending.receives_contracts_and_gra::text)
-        OR (broker.airport_authority IS DISTINCT FROM usaspending.airport_authority::text)
-        OR (broker.council_of_governments IS DISTINCT FROM usaspending.council_of_governments::text)
-        OR (broker.housing_authorities_public IS DISTINCT FROM usaspending.housing_authorities_public::text)
-        OR (broker.interstate_entity IS DISTINCT FROM usaspending.interstate_entity::text)
-        OR (broker.planning_commission IS DISTINCT FROM usaspending.planning_commission::text)
-        OR (broker.port_authority IS DISTINCT FROM usaspending.port_authority::text)
-        OR (broker.transit_authority IS DISTINCT FROM usaspending.transit_authority::text)
-        OR (broker.subchapter_s_corporation IS DISTINCT FROM usaspending.subchapter_s_corporation::text)
-        OR (broker.limited_liability_corporat IS DISTINCT FROM usaspending.limited_liability_corporat::text)
-        OR (broker.foreign_owned_and_located IS DISTINCT FROM usaspending.foreign_owned_and_located::text)
-        OR (broker.american_indian_owned_busi IS DISTINCT FROM usaspending.american_indian_owned_busi::text)
-        OR (broker.alaskan_native_owned_corpo IS DISTINCT FROM usaspending.alaskan_native_owned_corpo::text)
-        OR (broker.indian_tribe_federally_rec IS DISTINCT FROM usaspending.indian_tribe_federally_rec::text)
-        OR (broker.native_hawaiian_owned_busi IS DISTINCT FROM usaspending.native_hawaiian_owned_busi::text)
-        OR (broker.tribally_owned_business IS DISTINCT FROM usaspending.tribally_owned_business::text)
-        OR (broker.asian_pacific_american_own IS DISTINCT FROM usaspending.asian_pacific_american_own::text)
-        OR (broker.black_american_owned_busin IS DISTINCT FROM usaspending.black_american_owned_busin::text)
-        OR (broker.hispanic_american_owned_bu IS DISTINCT FROM usaspending.hispanic_american_owned_bu::text)
-        OR (broker.native_american_owned_busi IS DISTINCT FROM usaspending.native_american_owned_busi::text)
-        OR (broker.subcontinent_asian_asian_i IS DISTINCT FROM usaspending.subcontinent_asian_asian_i::text)
-        OR (broker.other_minority_owned_busin IS DISTINCT FROM usaspending.other_minority_owned_busin::text)
-        OR (broker.for_profit_organization IS DISTINCT FROM usaspending.for_profit_organization::text)
-        OR (broker.nonprofit_organization IS DISTINCT FROM usaspending.nonprofit_organization::text)
-        OR (broker.other_not_for_profit_organ IS DISTINCT FROM usaspending.other_not_for_profit_organ::text)
-        OR (broker.us_local_government IS DISTINCT FROM usaspending.us_local_government::text)
+        OR (broker.city_local_government IS DISTINCT FROM usaspending.city_local_government)
+        OR (broker.county_local_government IS DISTINCT FROM usaspending.county_local_government)
+        OR (broker.inter_municipal_local_gove IS DISTINCT FROM usaspending.inter_municipal_local_gove)
+        OR (broker.local_government_owned IS DISTINCT FROM usaspending.local_government_owned)
+        OR (broker.municipality_local_governm IS DISTINCT FROM usaspending.municipality_local_governm)
+        OR (broker.school_district_local_gove IS DISTINCT FROM usaspending.school_district_local_gove)
+        OR (broker.township_local_government IS DISTINCT FROM usaspending.township_local_government)
+        OR (broker.us_state_government IS DISTINCT FROM usaspending.us_state_government)
+        OR (broker.us_federal_government IS DISTINCT FROM usaspending.us_federal_government)
+        OR (broker.federal_agency IS DISTINCT FROM usaspending.federal_agency)
+        OR (broker.federally_funded_research IS DISTINCT FROM usaspending.federally_funded_research)
+        OR (broker.us_tribal_government IS DISTINCT FROM usaspending.us_tribal_government)
+        OR (broker.foreign_government IS DISTINCT FROM usaspending.foreign_government)
+        OR (broker.community_developed_corpor IS DISTINCT FROM usaspending.community_developed_corpor)
+        OR (broker.labor_surplus_area_firm IS DISTINCT FROM usaspending.labor_surplus_area_firm)
+        OR (broker.corporate_entity_not_tax_e IS DISTINCT FROM usaspending.corporate_entity_not_tax_e)
+        OR (broker.corporate_entity_tax_exemp IS DISTINCT FROM usaspending.corporate_entity_tax_exemp)
+        OR (broker.partnership_or_limited_lia IS DISTINCT FROM usaspending.partnership_or_limited_lia)
+        OR (broker.sole_proprietorship IS DISTINCT FROM usaspending.sole_proprietorship)
+        OR (broker.small_agricultural_coopera IS DISTINCT FROM usaspending.small_agricultural_coopera)
+        OR (broker.international_organization IS DISTINCT FROM usaspending.international_organization)
+        OR (broker.us_government_entity IS DISTINCT FROM usaspending.us_government_entity)
+        OR (broker.emerging_small_business IS DISTINCT FROM usaspending.emerging_small_business)
+        OR (broker.c8a_program_participant IS DISTINCT FROM usaspending.c8a_program_participant)
+        OR (broker.sba_certified_8_a_joint_ve IS DISTINCT FROM usaspending.sba_certified_8_a_joint_ve)
+        OR (broker.dot_certified_disadvantage IS DISTINCT FROM usaspending.dot_certified_disadvantage)
+        OR (broker.self_certified_small_disad IS DISTINCT FROM usaspending.self_certified_small_disad)
+        OR (broker.historically_underutilized IS DISTINCT FROM usaspending.historically_underutilized)
+        OR (broker.small_disadvantaged_busine IS DISTINCT FROM usaspending.small_disadvantaged_busine)
+        OR (broker.the_ability_one_program IS DISTINCT FROM usaspending.the_ability_one_program)
+        OR (broker.historically_black_college IS DISTINCT FROM usaspending.historically_black_college)
+        OR (broker.c1862_land_grant_college IS DISTINCT FROM usaspending.c1862_land_grant_college)
+        OR (broker.c1890_land_grant_college IS DISTINCT FROM usaspending.c1890_land_grant_college)
+        OR (broker.c1994_land_grant_college IS DISTINCT FROM usaspending.c1994_land_grant_college)
+        OR (broker.minority_institution IS DISTINCT FROM usaspending.minority_institution)
+        OR (broker.private_university_or_coll IS DISTINCT FROM usaspending.private_university_or_coll)
+        OR (broker.school_of_forestry IS DISTINCT FROM usaspending.school_of_forestry)
+        OR (broker.state_controlled_instituti IS DISTINCT FROM usaspending.state_controlled_instituti)
+        OR (broker.tribal_college IS DISTINCT FROM usaspending.tribal_college)
+        OR (broker.veterinary_college IS DISTINCT FROM usaspending.veterinary_college)
+        OR (broker.educational_institution IS DISTINCT FROM usaspending.educational_institution)
+        OR (broker.alaskan_native_servicing_i IS DISTINCT FROM usaspending.alaskan_native_servicing_i)
+        OR (broker.community_development_corp IS DISTINCT FROM usaspending.community_development_corp)
+        OR (broker.native_hawaiian_servicing IS DISTINCT FROM usaspending.native_hawaiian_servicing)
+        OR (broker.domestic_shelter IS DISTINCT FROM usaspending.domestic_shelter)
+        OR (broker.manufacturer_of_goods IS DISTINCT FROM usaspending.manufacturer_of_goods)
+        OR (broker.hospital_flag IS DISTINCT FROM usaspending.hospital_flag)
+        OR (broker.veterinary_hospital IS DISTINCT FROM usaspending.veterinary_hospital)
+        OR (broker.hispanic_servicing_institu IS DISTINCT FROM usaspending.hispanic_servicing_institu)
+        OR (broker.foundation IS DISTINCT FROM usaspending.foundation)
+        OR (broker.woman_owned_business IS DISTINCT FROM usaspending.woman_owned_business)
+        OR (broker.minority_owned_business IS DISTINCT FROM usaspending.minority_owned_business)
+        OR (broker.women_owned_small_business IS DISTINCT FROM usaspending.women_owned_small_business)
+        OR (broker.economically_disadvantaged IS DISTINCT FROM usaspending.economically_disadvantaged)
+        OR (broker.joint_venture_women_owned IS DISTINCT FROM usaspending.joint_venture_women_owned)
+        OR (broker.joint_venture_economically IS DISTINCT FROM usaspending.joint_venture_economically)
+        OR (broker.veteran_owned_business IS DISTINCT FROM usaspending.veteran_owned_business)
+        OR (broker.service_disabled_veteran_o IS DISTINCT FROM usaspending.service_disabled_veteran_o)
+        OR (broker.contracts IS DISTINCT FROM usaspending.contracts)
+        OR (broker.grants IS DISTINCT FROM usaspending.grants)
+        OR (broker.receives_contracts_and_gra IS DISTINCT FROM usaspending.receives_contracts_and_gra)
+        OR (broker.airport_authority IS DISTINCT FROM usaspending.airport_authority)
+        OR (broker.council_of_governments IS DISTINCT FROM usaspending.council_of_governments)
+        OR (broker.housing_authorities_public IS DISTINCT FROM usaspending.housing_authorities_public)
+        OR (broker.interstate_entity IS DISTINCT FROM usaspending.interstate_entity)
+        OR (broker.planning_commission IS DISTINCT FROM usaspending.planning_commission)
+        OR (broker.port_authority IS DISTINCT FROM usaspending.port_authority)
+        OR (broker.transit_authority IS DISTINCT FROM usaspending.transit_authority)
+        OR (broker.subchapter_s_corporation IS DISTINCT FROM usaspending.subchapter_s_corporation)
+        OR (broker.limited_liability_corporat IS DISTINCT FROM usaspending.limited_liability_corporat)
+        OR (broker.foreign_owned_and_located IS DISTINCT FROM usaspending.foreign_owned_and_located)
+        OR (broker.american_indian_owned_busi IS DISTINCT FROM usaspending.american_indian_owned_busi)
+        OR (broker.alaskan_native_owned_corpo IS DISTINCT FROM usaspending.alaskan_native_owned_corpo)
+        OR (broker.indian_tribe_federally_rec IS DISTINCT FROM usaspending.indian_tribe_federally_rec)
+        OR (broker.native_hawaiian_owned_busi IS DISTINCT FROM usaspending.native_hawaiian_owned_busi)
+        OR (broker.tribally_owned_business IS DISTINCT FROM usaspending.tribally_owned_business)
+        OR (broker.asian_pacific_american_own IS DISTINCT FROM usaspending.asian_pacific_american_own)
+        OR (broker.black_american_owned_busin IS DISTINCT FROM usaspending.black_american_owned_busin)
+        OR (broker.hispanic_american_owned_bu IS DISTINCT FROM usaspending.hispanic_american_owned_bu)
+        OR (broker.native_american_owned_busi IS DISTINCT FROM usaspending.native_american_owned_busi)
+        OR (broker.subcontinent_asian_asian_i IS DISTINCT FROM usaspending.subcontinent_asian_asian_i)
+        OR (broker.other_minority_owned_busin IS DISTINCT FROM usaspending.other_minority_owned_busin)
+        OR (broker.for_profit_organization IS DISTINCT FROM usaspending.for_profit_organization)
+        OR (broker.nonprofit_organization IS DISTINCT FROM usaspending.nonprofit_organization)
+        OR (broker.other_not_for_profit_organ IS DISTINCT FROM usaspending.other_not_for_profit_organ)
+        OR (broker.us_local_government IS DISTINCT FROM usaspending.us_local_government)
         OR (broker.referenced_idv_modificatio IS DISTINCT FROM usaspending.referenced_idv_modificatio)
         OR (broker.undefinitized_action IS DISTINCT FROM usaspending.undefinitized_action)
         OR (broker.undefinitized_action_desc IS DISTINCT FROM usaspending.undefinitized_action_desc)
