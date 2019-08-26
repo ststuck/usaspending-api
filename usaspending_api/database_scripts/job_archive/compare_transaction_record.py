@@ -46,8 +46,12 @@ def query_systems(broker_sql, usaspending_sql):
         raise FailedQuery
     loop.close()
 
-    # logger.info(broker_row.result()[0])
-    # logger.info(usaspending_row.result()[0])
+    if len(broker_row.result()) == 0:
+        logger.error("No Record from Broker")
+        raise SystemExit
+    if len(usaspending_row.result()) == 0:
+        logger.error("No Record from USAspending")
+        raise SystemExit
     return broker_row.result()[0], usaspending_row.result()[0]
 
 
