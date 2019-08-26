@@ -42,6 +42,8 @@ FROM
 GLOBALS = {
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
+    "starting_id": None,
+    "ending_id": None,
     "chunk_size": 250000,
     "temp_table": "temp_dev_3319_problematic_transactions",
     "script_dir": Path(__file__).resolve().parent,
@@ -108,13 +110,20 @@ def log(msg, transaction_type=None):
         logger.info(msg)
 
 
+def return_min_max_ids(sql, cursor):
+    cursor.execute(sql)
+    results = cursor.fetchall()
+    min_id, max_id = results[0]
+    GLOBALS['starting_id'] = GLOBALS['starting_id'] or min_id
+    GLOBALS['ending_id'] = GLOBALS['ending_id'] or max_id
+    return GLOBALS['starting_id'], GLOBALS['ending_id']
+
+
 def runner(transaction_type):
     func_config = GLOBALS[transaction_type]
     with psycopg2.connect(dsn=GLOBALS["broker_db"]) as connection:
         with connection.cursor() as cursor:
-            cursor.execute(func_config["min_max_sql"])
-            results = cursor.fetchall()
-            min_id, max_id = results[0]
+            min_id, max_id = return_min_max_ids(func_config["min_max_sql"], cursor)
             total = max_id - min_id + 1
 
             log("Min Published_Award_Financial_Assistance_ID: {:,}".format(min_id), transaction_type)
@@ -173,13 +182,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--chunk-size", type=int, default=GLOBALS["chunk_size"])
     parser.add_argument("--create-indexes", action="store_true")
-    parser.add_argument("--recreate-table", action="store_true")
+    parser.add_argument("--max-id", type=int)
+    parser.add_argument("--min-id", type=int)
     parser.add_argument("--one-type", choices=['fpds', 'fabs'])
+    parser.add_argument("--recreate-table", action="store_true")
     args = parser.parse_args()
 
     GLOBALS["chunk_size"] = args.chunk_size
     GLOBALS["drop_table"] = args.recreate_table
+    GLOBALS["ending_id"] = args.max_id
     GLOBALS["run_indexes"] = args.create_indexes
+    GLOBALS["starting_id"] = args.min_id
     if args.one_type:
         GLOBALS["transaction_types"] = [args.one_type]
 
