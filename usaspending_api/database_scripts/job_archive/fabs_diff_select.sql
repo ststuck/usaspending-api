@@ -21,7 +21,7 @@ INNER JOIN
             created_at::TIMESTAMP WITHOUT TIME ZONE,
             updated_at::TIMESTAMP WITHOUT TIME ZONE,
             published_award_financial_assistance_id,
-            UPPER(action_date) AS action_date,
+            action_date::date::text,
             UPPER(action_type) AS action_type,
             UPPER(assistance_type) AS assistance_type,
             UPPER(award_description) AS award_description,
@@ -103,15 +103,15 @@ INNER JOIN
             UPPER(ultimate_parent_legal_enti) AS ultimate_parent_legal_enti,
             UPPER(ultimate_parent_unique_ide) AS ultimate_parent_unique_ide,
             UPPER(unique_award_key) AS unique_award_key,
-            UPPER(high_comp_officer1_amount) AS high_comp_officer1_amount,
+            high_comp_officer1_amount,
             UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
-            UPPER(high_comp_officer2_amount) AS high_comp_officer2_amount,
+            high_comp_officer2_amount,
             UPPER(high_comp_officer2_full_na) AS high_comp_officer2_full_na,
-            UPPER(high_comp_officer3_amount) AS high_comp_officer3_amount,
+            high_comp_officer3_amount,
             UPPER(high_comp_officer3_full_na) AS high_comp_officer3_full_na,
-            UPPER(high_comp_officer4_amount) AS high_comp_officer4_amount,
+            high_comp_officer4_amount,
             UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
-            UPPER(high_comp_officer5_amount) AS high_comp_officer5_amount,
+            high_comp_officer5_amount,
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM published_award_financial_assistance
         WHERE published_award_financial_assistance_id BETWEEN {minid} AND {maxid}'
@@ -217,7 +217,7 @@ INNER JOIN
     AND (
          (broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE)
         OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.action_date IS DISTINCT FROM usaspending.action_date)
+        OR (broker.action_date IS DISTINCT FROM usaspending.action_date::date::text)
         OR (broker.action_type IS DISTINCT FROM usaspending.action_type)
         OR (broker.assistance_type IS DISTINCT FROM usaspending.assistance_type)
         OR (broker.award_description IS DISTINCT FROM usaspending.award_description)
@@ -275,7 +275,7 @@ INNER JOIN
         OR (broker.legal_entity_county_name IS DISTINCT FROM usaspending.legal_entity_county_name)
         OR (broker.legal_entity_state_code IS DISTINCT FROM usaspending.legal_entity_state_code)
         OR (broker.legal_entity_state_name IS DISTINCT FROM usaspending.legal_entity_state_name)
-        OR (broker.modified_at IS DISTINCT FROM usaspending.modified_at)
+        OR (broker.modified_at IS DISTINCT FROM usaspending.modified_at::TIMESTAMP WITHOUT TIME ZONE)
         OR (broker.afa_generated_unique IS DISTINCT FROM usaspending.afa_generated_unique)
         OR (broker.is_active IS DISTINCT FROM usaspending.is_active)
         OR (broker.awarding_office_name IS DISTINCT FROM usaspending.awarding_office_name)
