@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import asyncpg
+import datetime
 import logging
 import os
 from compare_transaction_record_data import (
@@ -33,6 +34,19 @@ async def async_run_select(sql, dsn):
     sql_result = await conn.fetch(sql)
     await conn.close()
     return sql_result
+
+
+def convert_record_to_safe_dict(d):
+    new_dict = {}
+    for k, v in d.items():
+        if v is None:
+            new_dict[k] = v
+        elif type(v) not in (str, float, int):
+            new_dict[k] = str(v)
+        else:
+            new_dict[k] = v
+    return new_dict
+    # return {k: str(v) for k, v in d.items()}
 
 
 def query_systems(broker_sql, usaspending_sql):
@@ -78,6 +92,15 @@ def main(is_fpds, surrogate_key):
             msg = "-- [{} / {}] Broker: '{}' USAspending: '{}'"
             logger.info(msg.format(broker, usaspending, broker_record[broker], usaspending_record[usaspending]))
 
+    if DUMP_JSON:
+        import json
+        print("## BROKER #######################################")
+        print(json.dumps(convert_record_to_safe_dict(broker_record), indent=4, sort_keys=True))
+        print("---")
+        print("## USASPENDING ##################################")
+        print(json.dumps(convert_record_to_safe_dict(usaspending_record), indent=4, sort_keys=True))
+        print("---")
+
     if discrepancies:
         msg = "REPORT for ID {} ({}): {} Total discrepancies!"
         logger.warn(msg.format(surrogate_key, "FPDS" if is_fpds else "FABS", discrepancies))
@@ -111,10 +134,13 @@ def get_usaspending_string(is_fpds, surrogate_key):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dump-json", action="store_true")
     mutually_exclusive_group = parser.add_mutually_exclusive_group(required=True)
     mutually_exclusive_group.add_argument("--detached_award_procurement_id", type=int)
     mutually_exclusive_group.add_argument("--published_award_financial_assistance_id", type=int)
     args = parser.parse_args()
+
+    DUMP_JSON = args.dump_json
 
     if args.published_award_financial_assistance_id:
         main(False, args.published_award_financial_assistance_id)

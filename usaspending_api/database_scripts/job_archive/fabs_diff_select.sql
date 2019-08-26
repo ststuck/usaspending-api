@@ -70,7 +70,7 @@ INNER JOIN
             UPPER(awarding_sub_tier_agency_n) AS awarding_sub_tier_agency_n,
             UPPER(funding_agency_name) AS funding_agency_name,
             UPPER(funding_sub_tier_agency_na) AS funding_sub_tier_agency_na,
-            COALESCE(is_historical::boolean, False) AS is_historical,
+            is_historical,
             UPPER(REGEXP_REPLACE(place_of_perform_county_na, E''\s{{2,}}'', '' '')) AS place_of_perform_county_na,
             UPPER(REGEXP_REPLACE(place_of_perform_state_nam, E''\s{{2,}}'', '' '')) AS place_of_perform_state_nam,
             UPPER(REGEXP_REPLACE(place_of_performance_city, E''\s{{2,}}'', '' '')) AS place_of_performance_city,
