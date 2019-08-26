@@ -114,9 +114,9 @@ def return_min_max_ids(sql, cursor):
     cursor.execute(sql)
     results = cursor.fetchall()
     min_id, max_id = results[0]
-    GLOBALS['starting_id'] = GLOBALS['starting_id'] or min_id
-    GLOBALS['ending_id'] = GLOBALS['ending_id'] or max_id
-    return GLOBALS['starting_id'], GLOBALS['ending_id']
+    GLOBALS["starting_id"] = GLOBALS["starting_id"] or min_id
+    GLOBALS["ending_id"] = GLOBALS["ending_id"] or max_id
+    return GLOBALS["starting_id"], GLOBALS["ending_id"]
 
 
 def runner(transaction_type):
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     parser.add_argument("--create-indexes", action="store_true")
     parser.add_argument("--max-id", type=int)
     parser.add_argument("--min-id", type=int)
-    parser.add_argument("--one-type", choices=['fpds', 'fabs'])
+    parser.add_argument("--one-type", choices=["fpds", "fabs"])
     parser.add_argument("--recreate-table", action="store_true")
     args = parser.parse_args()
 

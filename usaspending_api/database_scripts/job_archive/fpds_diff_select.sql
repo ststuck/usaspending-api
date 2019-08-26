@@ -307,7 +307,6 @@ INNER JOIN
             UPPER(organizational_type) AS organizational_type,
             UPPER(inherently_government_desc) AS inherently_government_desc,
             UPPER(unique_award_key) AS unique_award_key,
-            business_categories,
             additional_reporting,
             high_comp_officer1_amount,
             UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
@@ -322,7 +321,7 @@ INNER JOIN
         FROM detached_award_procurement
         WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
     ) AS broker (
-                created_at TIMESTAMP WITHOUT time ZONE,
+        created_at TIMESTAMP WITHOUT time ZONE,
         updated_at TIMESTAMP WITHOUT time ZONE,
         piid text,
         detached_award_procurement_id int,
@@ -611,7 +610,6 @@ INNER JOIN
         organizational_type text,
         inherently_government_desc text,
         unique_award_key text,
-        business_categories text[],
         additional_reporting text,
         high_comp_officer1_amount text,
         high_comp_officer1_full_na text,
