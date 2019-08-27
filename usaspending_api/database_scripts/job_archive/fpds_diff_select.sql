@@ -62,7 +62,7 @@ INNER JOIN
             UPPER(action_date) AS action_date,
             UPPER(action_type) AS action_type,
             UPPER(action_type_description) AS action_type_description,
-            federal_action_obligation AS federal_action_obligation,
+            federal_action_obligation::numeric(23,2) AS federal_action_obligation,
             UPPER(current_total_value_award) AS current_total_value_award,
             UPPER(potential_total_value_awar) AS potential_total_value_awar,
             UPPER(funding_sub_tier_agency_co) AS funding_sub_tier_agency_co,
@@ -308,15 +308,15 @@ INNER JOIN
             UPPER(inherently_government_desc) AS inherently_government_desc,
             UPPER(unique_award_key) AS unique_award_key,
             UPPER(additional_reporting) AS additional_reporting,
-            high_comp_officer1_amount,
+            high_comp_officer1_amount::numeric(23,2),
             UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
-            high_comp_officer2_amount,
+            high_comp_officer2_amount::numeric(23,2),
             UPPER(high_comp_officer2_full_na) AS high_comp_officer2_full_na,
-            high_comp_officer3_amount,
+            high_comp_officer3_amount::numeric(23,2),
             UPPER(high_comp_officer3_full_na) AS high_comp_officer3_full_na,
-            high_comp_officer4_amount,
+            high_comp_officer4_amount::numeric(23,2),
             UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
-            high_comp_officer5_amount,
+            high_comp_officer5_amount::numeric(23,2),
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM detached_award_procurement
         WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
@@ -365,7 +365,7 @@ INNER JOIN
         action_date text,
         action_type text,
         action_type_description text,
-        federal_action_obligation numeric,
+        federal_action_obligation numeric(23,2),
         current_total_value_award text,
         potential_total_value_awar text,
         funding_sub_tier_agency_co text,
@@ -611,15 +611,15 @@ INNER JOIN
         inherently_government_desc text,
         unique_award_key text,
         additional_reporting text,
-        high_comp_officer1_amount text,
+        high_comp_officer1_amount numeric(23,2),
         high_comp_officer1_full_na text,
-        high_comp_officer2_amount text,
+        high_comp_officer2_amount numeric(23,2),
         high_comp_officer2_full_na text,
-        high_comp_officer3_amount text,
+        high_comp_officer3_amount numeric(23,2),
         high_comp_officer3_full_na text,
-        high_comp_officer4_amount text,
+        high_comp_officer4_amount numeric(23,2),
         high_comp_officer4_full_na text,
-        high_comp_officer5_amount text,
+        high_comp_officer5_amount numeric(23,2),
         high_comp_officer5_full_na text
     )
 ) AS broker ON (
@@ -913,15 +913,15 @@ INNER JOIN
         OR (broker.organizational_type IS DISTINCT FROM usaspending.organizational_type)
         OR (broker.inherently_government_desc IS DISTINCT FROM usaspending.inherently_government_desc)
         OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
-        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount::text)
+        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount)
         OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
-        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount::text)
+        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount)
         OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name)
-        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount::text)
+        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount)
         OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name)
-        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount::text)
+        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount)
         OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name)
-        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount::text)
+        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount)
         OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name)
     )
 )

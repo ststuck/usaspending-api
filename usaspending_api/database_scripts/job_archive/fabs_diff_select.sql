@@ -35,9 +35,9 @@ INNER JOIN
             UPPER(business_types) AS business_types,
             UPPER(cfda_number) AS cfda_number,
             UPPER(correction_delete_indicatr) AS correction_delete_indicatr,
-            face_value_loan_guarantee,
+            face_value_loan_guarantee::numeric(23,2),
             UPPER(fain) AS fain,
-            federal_action_obligation,
+            federal_action_obligation::numeric(23,2),
             UPPER(fiscal_year_and_quarter_co) AS fiscal_year_and_quarter_co,
             UPPER(funding_agency_code) AS funding_agency_code,
             UPPER(funding_office_code) AS funding_office_code,
@@ -51,8 +51,8 @@ INNER JOIN
             UPPER(REGEXP_REPLACE(legal_entity_foreign_provi, E''\s{{2,}}'', '' '')) AS legal_entity_foreign_provi,
             UPPER(REGEXP_REPLACE(legal_entity_zip5, E''\s{{2,}}'', '' '')) AS legal_entity_zip5,
             UPPER(REGEXP_REPLACE(legal_entity_zip_last4, E''\s{{2,}}'', '' '')) AS legal_entity_zip_last4,
-            non_federal_funding_amount,
-            original_loan_subsidy_cost,
+            non_federal_funding_amount::numeric(23,2),
+            original_loan_subsidy_cost::numeric(23,2),
             UPPER(period_of_performance_curr) AS period_of_performance_curr,
             UPPER(period_of_performance_star) AS period_of_performance_star,
             UPPER(REGEXP_REPLACE(place_of_performance_code, E''\s{{2,}}'', '' '')) AS place_of_performance_code,
@@ -89,7 +89,7 @@ INNER JOIN
             UPPER(REGEXP_REPLACE(legal_entity_country_name, E''\s{{2,}}'', '' '')) AS legal_entity_country_name,
             UPPER(REGEXP_REPLACE(place_of_perform_country_n, E''\s{{2,}}'', '' '')) AS place_of_perform_country_n,
             UPPER(REGEXP_REPLACE(place_of_perform_county_co, E''\s{{2,}}'', '' '')) AS place_of_perform_county_co,
-            submission_id,
+            submission_id::text,
             UPPER(REGEXP_REPLACE(place_of_perfor_state_code, E''\s{{2,}}'', '' '')) AS place_of_perfor_state_code,
             UPPER(REGEXP_REPLACE(place_of_performance_zip5, E''\s{{2,}}'', '' '')) AS place_of_performance_zip5,
             UPPER(REGEXP_REPLACE(place_of_perform_zip_last4, E''\s{{2,}}'', '' '')) AS place_of_perform_zip_last4,
@@ -102,15 +102,15 @@ INNER JOIN
             UPPER(ultimate_parent_legal_enti) AS ultimate_parent_legal_enti,
             UPPER(ultimate_parent_unique_ide) AS ultimate_parent_unique_ide,
             UPPER(unique_award_key) AS unique_award_key,
-            high_comp_officer1_amount,
+            high_comp_officer1_amount::numeric(23,2),
             UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
-            high_comp_officer2_amount,
+            high_comp_officer2_amount::numeric(23,2),
             UPPER(high_comp_officer2_full_na) AS high_comp_officer2_full_na,
-            high_comp_officer3_amount,
+            high_comp_officer3_amount::numeric(23,2),
             UPPER(high_comp_officer3_full_na) AS high_comp_officer3_full_na,
-            high_comp_officer4_amount,
+            high_comp_officer4_amount::numeric(23,2),
             UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
-            high_comp_officer5_amount,
+            high_comp_officer5_amount::numeric(23,2),
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM published_award_financial_assistance
         WHERE published_award_financial_assistance_id BETWEEN {minid} AND {maxid}'
@@ -132,9 +132,9 @@ INNER JOIN
         business_types text,
         cfda_number text,
         correction_delete_indicatr text,
-        face_value_loan_guarantee numeric,
+        face_value_loan_guarantee numeric(23,2),
         fain text,
-        federal_action_obligation numeric,
+        federal_action_obligation numeric(23,2),
         fiscal_year_and_quarter_co text,
         funding_agency_code text,
         funding_office_code text,
@@ -148,8 +148,8 @@ INNER JOIN
         legal_entity_foreign_provi text,
         legal_entity_zip5 text,
         legal_entity_zip_last4 text,
-        non_federal_funding_amount numeric,
-        original_loan_subsidy_cost numeric,
+        non_federal_funding_amount numeric(23,2),
+        original_loan_subsidy_cost numeric(23,2),
         period_of_performance_curr text,
         period_of_performance_star text,
         place_of_performance_code text,
@@ -186,7 +186,7 @@ INNER JOIN
         legal_entity_country_name text,
         place_of_perform_country_n text,
         place_of_perform_county_co text,
-        submission_id numeric,
+        submission_id text,
         place_of_perfor_state_code text,
         place_of_performance_zip5 text,
         place_of_perform_zip_last4 text,
@@ -199,15 +199,15 @@ INNER JOIN
         ultimate_parent_legal_enti text,
         ultimate_parent_unique_ide text,
         unique_award_key text,
-        high_comp_officer1_amount text,
+        high_comp_officer1_amount numeric(23,2),
         high_comp_officer1_full_na text,
-        high_comp_officer2_amount text,
+        high_comp_officer2_amount numeric(23,2),
         high_comp_officer2_full_na text,
-        high_comp_officer3_amount text,
+        high_comp_officer3_amount numeric(23,2),
         high_comp_officer3_full_na text,
-        high_comp_officer4_amount text,
+        high_comp_officer4_amount numeric(23,2),
         high_comp_officer4_full_na text,
-        high_comp_officer5_amount text,
+        high_comp_officer5_amount numeric(23,2),
         high_comp_officer5_full_na text
     )
 ) AS broker ON (
@@ -283,7 +283,7 @@ INNER JOIN
         OR (broker.legal_entity_country_name IS DISTINCT FROM usaspending.legal_entity_country_name)
         OR (broker.place_of_perform_country_n IS DISTINCT FROM usaspending.place_of_perform_country_n)
         OR (broker.place_of_perform_county_co IS DISTINCT FROM usaspending.place_of_perform_county_co)
-        OR (broker.submission_id IS DISTINCT FROM usaspending.submission_id)
+        OR (broker.submission_id IS DISTINCT FROM usaspending.submission_id::text)
         OR (broker.place_of_perfor_state_code IS DISTINCT FROM usaspending.place_of_perfor_state_code)
         OR (broker.place_of_performance_zip5 IS DISTINCT FROM usaspending.place_of_performance_zip5)
         OR (broker.place_of_perform_zip_last4 IS DISTINCT FROM usaspending.place_of_perform_zip_last4)
@@ -296,15 +296,15 @@ INNER JOIN
         OR (broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti)
         OR (broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide)
         OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
-        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount::text)
+        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount)
         OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
-        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount::text)
+        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount)
         OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name)
-        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount::text)
+        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount)
         OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name)
-        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount::text)
+        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount)
         OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name)
-        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount::text)
+        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount)
         OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name)
     )
 )

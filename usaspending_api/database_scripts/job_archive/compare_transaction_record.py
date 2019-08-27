@@ -1,9 +1,10 @@
 import argparse
 import asyncio
 import asyncpg
-import datetime
+import json
 import logging
 import os
+
 from compare_transaction_record_data import (
     ASSISTANCE_BROKER_USASPENDING_MAP,
     DETATCHED_AWARD_PROCURMENT,
@@ -46,7 +47,13 @@ def convert_record_to_safe_dict(d):
         else:
             new_dict[k] = v
     return new_dict
-    # return {k: str(v) for k, v in d.items()}
+
+
+def print_dict_as_json(header, d):
+    header = "## {} ".format(header.upper())
+    print(header + "#" * (50 - len(header)))
+    print(json.dumps(convert_record_to_safe_dict(d), indent=4, sort_keys=True))
+    print("---")
 
 
 def query_systems(broker_sql, usaspending_sql):
@@ -86,20 +93,22 @@ def main(is_fpds, surrogate_key):
     else:
         mapper = ASSISTANCE_BROKER_USASPENDING_MAP
 
+    broker_record_dict = convert_record_to_safe_dict(broker_record)
+    usaspending_record_dict = convert_record_to_safe_dict(usaspending_record)
+
     for broker, usaspending in mapper.items():
-        if broker_record[broker] != usaspending_record[usaspending]:
+        if (
+            (broker_record_dict[broker] is None and usaspending_record_dict[usaspending] is not None)
+            or (broker_record_dict[broker] is not None and usaspending_record_dict[usaspending] is None)
+            or (broker_record_dict[broker] != usaspending_record_dict[usaspending])
+        ):
             discrepancies += 1
             msg = "-- [{} / {}] Broker: '{}' USAspending: '{}'"
             logger.info(msg.format(broker, usaspending, broker_record[broker], usaspending_record[usaspending]))
 
     if DUMP_JSON:
-        import json
-        print("## BROKER #######################################")
-        print(json.dumps(convert_record_to_safe_dict(broker_record), indent=4, sort_keys=True))
-        print("---")
-        print("## USASPENDING ##################################")
-        print(json.dumps(convert_record_to_safe_dict(usaspending_record), indent=4, sort_keys=True))
-        print("---")
+        print_dict_as_json("broker", broker_record_dict)
+        print_dict_as_json("usaspending", usaspending_record_dict)
 
     if discrepancies:
         msg = "REPORT for ID {} ({}): {} Total discrepancies!"

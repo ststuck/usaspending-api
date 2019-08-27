@@ -150,17 +150,17 @@ def runner(transaction_type):
             # Move to next chunk
             _min = _max + 1
 
-    log("Completed exection on {}".format(transaction_type), transaction_type)
+    log("Completed execution on {}".format(transaction_type), transaction_type)
 
 
 def create_indexes():
     indexes = [
         "CREATE INDEX IF NOT EXISTS ix_{table}_action_date ON {table} USING BTREE(action_date, system) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(broker_record_create) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(piid_fain_uri, system) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_created ON {table} USING BTREE(usaspending_record_create) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_modified ON {table} USING BTREE(broker_record_update) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_modified ON {table} USING BTREE(usaspending_record_update) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_create ON {table} USING BTREE(broker_record_create) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_piid_fain_uri ON {table} USING BTREE(piid_fain_uri, system) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_record_create ON {table} USING BTREE(usaspending_record_create) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_update ON {table} USING BTREE(broker_record_update) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_rec_update ON {table} USING BTREE(usaspending_record_update) WITH (fillfactor=99)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_{table}_transaction_id ON {table} USING BTREE(transaction_id) WITH (fillfactor=99)",
     ]
 
