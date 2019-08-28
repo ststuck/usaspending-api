@@ -1,16 +1,97 @@
 SELECT
-    'fabs'::TEXT AS "system",
-    usaspending.transaction_id,
-    usaspending.published_award_financial_assistance_id AS "broker_surrogate_id",
-    usaspending.afa_generated_unique AS "broker_derived_unique_key",
-    concat_ws(' ', usaspending.fain, usaspending.uri) AS "piid_fain_uri",
-    usaspending.unique_award_key,
-    usaspending.action_date::date,
-    usaspending.modified_at::date AS "record_last_modified",
-    broker.created_at::TIMESTAMP WITHOUT TIME ZONE AS "broker_record_create",
-    broker.updated_at::TIMESTAMP WITHOUT TIME ZONE AS "broker_record_update",
-    transaction_normalized.create_date::TIMESTAMP WITH TIME ZONE AS "usaspending_record_create",
-    transaction_normalized.update_date::TIMESTAMP WITH TIME ZONE AS "usaspending_record_update"
+        broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE AS created_at,
+        broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE AS updated_at,
+        broker.action_date IS DISTINCT FROM usaspending.action_date::date::text AS action_date,
+        broker.action_type IS DISTINCT FROM usaspending.action_type AS action_type,
+        broker.assistance_type IS DISTINCT FROM usaspending.assistance_type AS assistance_type,
+        broker.award_description IS DISTINCT FROM usaspending.award_description AS award_description,
+        broker.awardee_or_recipient_legal IS DISTINCT FROM usaspending.awardee_or_recipient_legal AS awardee_or_recipient_legal,
+        broker.awardee_or_recipient_uniqu IS DISTINCT FROM usaspending.awardee_or_recipient_uniqu AS awardee_or_recipient_uniqu,
+        broker.awarding_agency_code IS DISTINCT FROM usaspending.awarding_agency_code AS awarding_agency_code,
+        broker.awarding_office_code IS DISTINCT FROM usaspending.awarding_office_code AS awarding_office_code,
+        broker.awarding_sub_tier_agency_c IS DISTINCT FROM usaspending.awarding_sub_tier_agency_c AS awarding_sub_tier_agency_c,
+        broker.award_modification_amendme IS DISTINCT FROM usaspending.award_modification_amendme AS award_modification_amendme,
+        broker.business_funds_indicator IS DISTINCT FROM usaspending.business_funds_indicator AS business_funds_indicator,
+        broker.business_types IS DISTINCT FROM usaspending.business_types AS business_types,
+        broker.cfda_number IS DISTINCT FROM usaspending.cfda_number AS cfda_number,
+        broker.correction_delete_indicatr IS DISTINCT FROM usaspending.correction_delete_indicatr AS correction_delete_indicatr,
+        broker.face_value_loan_guarantee IS DISTINCT FROM usaspending.face_value_loan_guarantee AS face_value_loan_guarantee,
+        broker.fain IS DISTINCT FROM usaspending.fain AS fain,
+        broker.federal_action_obligation IS DISTINCT FROM usaspending.federal_action_obligation AS federal_action_obligation,
+        broker.fiscal_year_and_quarter_co IS DISTINCT FROM usaspending.fiscal_year_and_quarter_co AS fiscal_year_and_quarter_co,
+        broker.funding_agency_code IS DISTINCT FROM usaspending.funding_agency_code AS funding_agency_code,
+        broker.funding_office_code IS DISTINCT FROM usaspending.funding_office_code AS funding_office_code,
+        broker.funding_sub_tier_agency_co IS DISTINCT FROM usaspending.funding_sub_tier_agency_co AS funding_sub_tier_agency_co,
+        broker.legal_entity_address_line1 IS DISTINCT FROM usaspending.legal_entity_address_line1 AS legal_entity_address_line1,
+        broker.legal_entity_address_line2 IS DISTINCT FROM usaspending.legal_entity_address_line2 AS legal_entity_address_line2,
+        broker.legal_entity_address_line3 IS DISTINCT FROM usaspending.legal_entity_address_line3 AS legal_entity_address_line3,
+        broker.legal_entity_country_code IS DISTINCT FROM usaspending.legal_entity_country_code AS legal_entity_country_code,
+        broker.legal_entity_foreign_city IS DISTINCT FROM usaspending.legal_entity_foreign_city AS legal_entity_foreign_city,
+        broker.legal_entity_foreign_posta IS DISTINCT FROM usaspending.legal_entity_foreign_posta AS legal_entity_foreign_posta,
+        broker.legal_entity_foreign_provi IS DISTINCT FROM usaspending.legal_entity_foreign_provi AS legal_entity_foreign_provi,
+        broker.legal_entity_zip5 IS DISTINCT FROM usaspending.legal_entity_zip5 AS legal_entity_zip5,
+        broker.legal_entity_zip_last4 IS DISTINCT FROM usaspending.legal_entity_zip_last4 AS legal_entity_zip_last4,
+        broker.non_federal_funding_amount IS DISTINCT FROM usaspending.non_federal_funding_amount AS non_federal_funding_amount,
+        broker.original_loan_subsidy_cost IS DISTINCT FROM usaspending.original_loan_subsidy_cost AS original_loan_subsidy_cost,
+        broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr AS period_of_performance_curr,
+        broker.period_of_performance_star IS DISTINCT FROM usaspending.period_of_performance_star AS period_of_performance_star,
+        broker.place_of_performance_code IS DISTINCT FROM usaspending.place_of_performance_code AS place_of_performance_code,
+        broker.place_of_performance_congr IS DISTINCT FROM usaspending.place_of_performance_congr AS place_of_performance_congr,
+        broker.place_of_perform_country_c IS DISTINCT FROM usaspending.place_of_perform_country_c AS place_of_perform_country_c,
+        broker.place_of_performance_forei IS DISTINCT FROM usaspending.place_of_performance_forei AS place_of_performance_forei,
+        broker.place_of_performance_zip4a IS DISTINCT FROM usaspending.place_of_performance_zip4a AS place_of_performance_zip4a,
+        broker.record_type IS DISTINCT FROM usaspending.record_type AS record_type,
+        broker.sai_number IS DISTINCT FROM usaspending.sai_number AS sai_number,
+        broker.uri IS DISTINCT FROM usaspending.uri AS uri,
+        broker.legal_entity_congressional IS DISTINCT FROM usaspending.legal_entity_congressional AS legal_entity_congressional,
+        broker.total_funding_amount IS DISTINCT FROM usaspending.total_funding_amount AS total_funding_amount,
+        broker.cfda_title IS DISTINCT FROM usaspending.cfda_title AS cfda_title,
+        broker.awarding_agency_name IS DISTINCT FROM usaspending.awarding_agency_name AS awarding_agency_name,
+        broker.awarding_sub_tier_agency_n IS DISTINCT FROM usaspending.awarding_sub_tier_agency_n AS awarding_sub_tier_agency_n,
+        broker.funding_agency_name IS DISTINCT FROM usaspending.funding_agency_name AS funding_agency_name,
+        broker.funding_sub_tier_agency_na IS DISTINCT FROM usaspending.funding_sub_tier_agency_na AS funding_sub_tier_agency_na,
+        broker.is_historical IS DISTINCT FROM usaspending.is_historical AS is_historical,
+        broker.place_of_perform_county_na IS DISTINCT FROM usaspending.place_of_perform_county_na AS place_of_perform_county_na,
+        broker.place_of_perform_state_nam IS DISTINCT FROM usaspending.place_of_perform_state_nam AS place_of_perform_state_nam,
+        broker.place_of_performance_city IS DISTINCT FROM usaspending.place_of_performance_city AS place_of_performance_city,
+        broker.legal_entity_city_name IS DISTINCT FROM usaspending.legal_entity_city_name AS legal_entity_city_name,
+        broker.legal_entity_county_code IS DISTINCT FROM usaspending.legal_entity_county_code AS legal_entity_county_code,
+        broker.legal_entity_county_name IS DISTINCT FROM usaspending.legal_entity_county_name AS legal_entity_county_name,
+        broker.legal_entity_state_code IS DISTINCT FROM usaspending.legal_entity_state_code AS legal_entity_state_code,
+        broker.legal_entity_state_name IS DISTINCT FROM usaspending.legal_entity_state_name AS legal_entity_state_name,
+        broker.modified_at IS DISTINCT FROM usaspending.modified_at::TIMESTAMP WITHOUT TIME ZONE AS modified_at,
+        broker.afa_generated_unique IS DISTINCT FROM usaspending.afa_generated_unique AS afa_generated_unique,
+        broker.is_active IS DISTINCT FROM usaspending.is_active AS is_active,
+        broker.awarding_office_name IS DISTINCT FROM usaspending.awarding_office_name AS awarding_office_name,
+        broker.funding_office_name IS DISTINCT FROM usaspending.funding_office_name AS funding_office_name,
+        broker.legal_entity_city_code IS DISTINCT FROM usaspending.legal_entity_city_code AS legal_entity_city_code,
+        broker.legal_entity_foreign_descr IS DISTINCT FROM usaspending.legal_entity_foreign_descr AS legal_entity_foreign_descr,
+        broker.legal_entity_country_name IS DISTINCT FROM usaspending.legal_entity_country_name AS legal_entity_country_name,
+        broker.place_of_perform_country_n IS DISTINCT FROM usaspending.place_of_perform_country_n AS place_of_perform_country_n,
+        broker.place_of_perform_county_co IS DISTINCT FROM usaspending.place_of_perform_county_co AS place_of_perform_county_co,
+        broker.submission_id IS DISTINCT FROM usaspending.submission_id::text AS submission_id,
+        broker.place_of_perfor_state_code IS DISTINCT FROM usaspending.place_of_perfor_state_code AS place_of_perfor_state_code,
+        broker.place_of_performance_zip5 IS DISTINCT FROM usaspending.place_of_performance_zip5 AS place_of_performance_zip5,
+        broker.place_of_perform_zip_last4 IS DISTINCT FROM usaspending.place_of_perform_zip_last4 AS place_of_perform_zip_last4,
+        broker.action_type_description IS DISTINCT FROM usaspending.action_type_description AS action_type_description,
+        broker.assistance_type_desc IS DISTINCT FROM usaspending.assistance_type_desc AS assistance_type_desc,
+        broker.business_funds_ind_desc IS DISTINCT FROM usaspending.business_funds_ind_desc AS business_funds_ind_desc,
+        broker.business_types_desc IS DISTINCT FROM usaspending.business_types_desc AS business_types_desc,
+        broker.correction_delete_ind_desc IS DISTINCT FROM usaspending.correction_delete_ind_desc AS correction_delete_ind_desc,
+        broker.record_type_description IS DISTINCT FROM usaspending.record_type_description AS record_type_description,
+        broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti AS ultimate_parent_legal_enti,
+        broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide AS ultimate_parent_unique_ide,
+        broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key AS unique_award_key,
+        broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount AS high_comp_officer1_amount,
+        broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name AS high_comp_officer1_full_na,
+        broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount AS high_comp_officer2_amount,
+        broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name AS high_comp_officer2_full_na,
+        broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount AS high_comp_officer3_amount,
+        broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name AS high_comp_officer3_full_na,
+        broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount AS high_comp_officer4_amount,
+        broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name AS high_comp_officer4_full_na,
+        broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount AS high_comp_officer5_amount,
+        broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name AS high_comp_officer5_full_na
 FROM transaction_fabs AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN
@@ -113,7 +194,7 @@ INNER JOIN
             high_comp_officer5_amount::numeric(23,2),
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM published_award_financial_assistance
-        WHERE published_award_financial_assistance_id BETWEEN {minid} AND {maxid}'
+        WHERE published_award_financial_assistance_id = <>'
     ) AS broker(
         created_at TIMESTAMP WITHOUT TIME ZONE,
         updated_at TIMESTAMP WITHOUT TIME ZONE,
@@ -210,101 +291,4 @@ INNER JOIN
         high_comp_officer5_amount numeric(23,2),
         high_comp_officer5_full_na text
     )
-) AS broker ON (
-    (broker.published_award_financial_assistance_id = usaspending.published_award_financial_assistance_id)
-    AND (
-         (broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.action_date IS DISTINCT FROM usaspending.action_date::date::text)
-        OR (broker.action_type IS DISTINCT FROM usaspending.action_type)
-        OR (broker.assistance_type IS DISTINCT FROM usaspending.assistance_type)
-        OR (broker.award_description IS DISTINCT FROM usaspending.award_description)
-        OR (broker.awardee_or_recipient_legal IS DISTINCT FROM usaspending.awardee_or_recipient_legal)
-        OR (broker.awardee_or_recipient_uniqu IS DISTINCT FROM usaspending.awardee_or_recipient_uniqu)
-        OR (broker.awarding_agency_code IS DISTINCT FROM usaspending.awarding_agency_code)
-        OR (broker.awarding_office_code IS DISTINCT FROM usaspending.awarding_office_code)
-        OR (broker.awarding_sub_tier_agency_c IS DISTINCT FROM usaspending.awarding_sub_tier_agency_c)
-        OR (broker.award_modification_amendme IS DISTINCT FROM usaspending.award_modification_amendme)
-        OR (broker.business_funds_indicator IS DISTINCT FROM usaspending.business_funds_indicator)
-        OR (broker.business_types IS DISTINCT FROM usaspending.business_types)
-        OR (broker.cfda_number IS DISTINCT FROM usaspending.cfda_number)
-        OR (broker.correction_delete_indicatr IS DISTINCT FROM usaspending.correction_delete_indicatr)
-        OR (broker.face_value_loan_guarantee IS DISTINCT FROM usaspending.face_value_loan_guarantee)
-        OR (broker.fain IS DISTINCT FROM usaspending.fain)
-        OR (broker.federal_action_obligation IS DISTINCT FROM usaspending.federal_action_obligation)
-        OR (broker.fiscal_year_and_quarter_co IS DISTINCT FROM usaspending.fiscal_year_and_quarter_co)
-        OR (broker.funding_agency_code IS DISTINCT FROM usaspending.funding_agency_code)
-        OR (broker.funding_office_code IS DISTINCT FROM usaspending.funding_office_code)
-        OR (broker.funding_sub_tier_agency_co IS DISTINCT FROM usaspending.funding_sub_tier_agency_co)
-        OR (broker.legal_entity_address_line1 IS DISTINCT FROM usaspending.legal_entity_address_line1)
-        OR (broker.legal_entity_address_line2 IS DISTINCT FROM usaspending.legal_entity_address_line2)
-        OR (broker.legal_entity_address_line3 IS DISTINCT FROM usaspending.legal_entity_address_line3)
-        OR (broker.legal_entity_country_code IS DISTINCT FROM usaspending.legal_entity_country_code)
-        OR (broker.legal_entity_foreign_city IS DISTINCT FROM usaspending.legal_entity_foreign_city)
-        OR (broker.legal_entity_foreign_posta IS DISTINCT FROM usaspending.legal_entity_foreign_posta)
-        OR (broker.legal_entity_foreign_provi IS DISTINCT FROM usaspending.legal_entity_foreign_provi)
-        OR (broker.legal_entity_zip5 IS DISTINCT FROM usaspending.legal_entity_zip5)
-        OR (broker.legal_entity_zip_last4 IS DISTINCT FROM usaspending.legal_entity_zip_last4)
-        OR (broker.non_federal_funding_amount IS DISTINCT FROM usaspending.non_federal_funding_amount)
-        OR (broker.original_loan_subsidy_cost IS DISTINCT FROM usaspending.original_loan_subsidy_cost)
-        OR (broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr)
-        OR (broker.period_of_performance_star IS DISTINCT FROM usaspending.period_of_performance_star)
-        OR (broker.place_of_performance_code IS DISTINCT FROM usaspending.place_of_performance_code)
-        OR (broker.place_of_performance_congr IS DISTINCT FROM usaspending.place_of_performance_congr)
-        OR (broker.place_of_perform_country_c IS DISTINCT FROM usaspending.place_of_perform_country_c)
-        OR (broker.place_of_performance_forei IS DISTINCT FROM usaspending.place_of_performance_forei)
-        OR (broker.place_of_performance_zip4a IS DISTINCT FROM usaspending.place_of_performance_zip4a)
-        OR (broker.record_type IS DISTINCT FROM usaspending.record_type)
-        OR (broker.sai_number IS DISTINCT FROM usaspending.sai_number)
-        OR (broker.uri IS DISTINCT FROM usaspending.uri)
-        OR (broker.legal_entity_congressional IS DISTINCT FROM usaspending.legal_entity_congressional)
-        OR (broker.total_funding_amount IS DISTINCT FROM usaspending.total_funding_amount)
-        OR (broker.cfda_title IS DISTINCT FROM usaspending.cfda_title)
-        OR (broker.awarding_agency_name IS DISTINCT FROM usaspending.awarding_agency_name)
-        OR (broker.awarding_sub_tier_agency_n IS DISTINCT FROM usaspending.awarding_sub_tier_agency_n)
-        OR (broker.funding_agency_name IS DISTINCT FROM usaspending.funding_agency_name)
-        OR (broker.funding_sub_tier_agency_na IS DISTINCT FROM usaspending.funding_sub_tier_agency_na)
-        OR (broker.is_historical IS DISTINCT FROM usaspending.is_historical)
-        OR (broker.place_of_perform_county_na IS DISTINCT FROM usaspending.place_of_perform_county_na)
-        OR (broker.place_of_perform_state_nam IS DISTINCT FROM usaspending.place_of_perform_state_nam)
-        OR (broker.place_of_performance_city IS DISTINCT FROM usaspending.place_of_performance_city)
-        OR (broker.legal_entity_city_name IS DISTINCT FROM usaspending.legal_entity_city_name)
-        OR (broker.legal_entity_county_code IS DISTINCT FROM usaspending.legal_entity_county_code)
-        OR (broker.legal_entity_county_name IS DISTINCT FROM usaspending.legal_entity_county_name)
-        OR (broker.legal_entity_state_code IS DISTINCT FROM usaspending.legal_entity_state_code)
-        OR (broker.legal_entity_state_name IS DISTINCT FROM usaspending.legal_entity_state_name)
-        OR (broker.modified_at IS DISTINCT FROM usaspending.modified_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.afa_generated_unique IS DISTINCT FROM usaspending.afa_generated_unique)
-        OR (broker.is_active IS DISTINCT FROM usaspending.is_active)
-        OR (broker.awarding_office_name IS DISTINCT FROM usaspending.awarding_office_name)
-        OR (broker.funding_office_name IS DISTINCT FROM usaspending.funding_office_name)
-        OR (broker.legal_entity_city_code IS DISTINCT FROM usaspending.legal_entity_city_code)
-        OR (broker.legal_entity_foreign_descr IS DISTINCT FROM usaspending.legal_entity_foreign_descr)
-        OR (broker.legal_entity_country_name IS DISTINCT FROM usaspending.legal_entity_country_name)
-        OR (broker.place_of_perform_country_n IS DISTINCT FROM usaspending.place_of_perform_country_n)
-        OR (broker.place_of_perform_county_co IS DISTINCT FROM usaspending.place_of_perform_county_co)
-        OR (broker.submission_id IS DISTINCT FROM usaspending.submission_id::text)
-        OR (broker.place_of_perfor_state_code IS DISTINCT FROM usaspending.place_of_perfor_state_code)
-        OR (broker.place_of_performance_zip5 IS DISTINCT FROM usaspending.place_of_performance_zip5)
-        OR (broker.place_of_perform_zip_last4 IS DISTINCT FROM usaspending.place_of_perform_zip_last4)
-        OR (broker.action_type_description IS DISTINCT FROM usaspending.action_type_description)
-        OR (broker.assistance_type_desc IS DISTINCT FROM usaspending.assistance_type_desc)
-        OR (broker.business_funds_ind_desc IS DISTINCT FROM usaspending.business_funds_ind_desc)
-        OR (broker.business_types_desc IS DISTINCT FROM usaspending.business_types_desc)
-        OR (broker.correction_delete_ind_desc IS DISTINCT FROM usaspending.correction_delete_ind_desc)
-        OR (broker.record_type_description IS DISTINCT FROM usaspending.record_type_description)
-        OR (broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti)
-        OR (broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide)
-        OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
-        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount)
-        OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
-        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount)
-        OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name)
-        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount)
-        OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name)
-        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount)
-        OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name)
-        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount)
-        OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name)
-    )
-)
+) AS broker ON (broker.published_award_financial_assistance_id = usaspending.published_award_financial_assistance_id)

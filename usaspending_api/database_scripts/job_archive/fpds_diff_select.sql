@@ -1,5 +1,5 @@
 SELECT
-    'fpds' as "system",
+    'fpds'::TEXT as "system",
     usaspending.transaction_id,
     usaspending.detached_award_procurement_id AS "broker_surrogate_id",
     usaspending.detached_award_proc_unique AS "broker_derived_unique_key",
