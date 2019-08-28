@@ -1,3 +1,12 @@
+# Jira Ticket Number(s): <DEV-2479, DEV-3319>
+# Expected CLI: $ python usaspending_api/database_scripts/job_archive/compare_transaction_record.py --detached_award_procurement_id <id>
+# Purpose:
+#   using the mutually exclusive flags, provide a broker surrogate key to
+#   compare a transaction record between Broker and USAspending for
+#   non-intential discrepancies. By default it reports the problematic fields (if any)
+#   It can also dump the records to JSON to compare in a diff tool or visually inspect.
+
+
 import argparse
 import asyncio
 import asyncpg
@@ -155,5 +164,3 @@ if __name__ == "__main__":
         main(False, args.published_award_financial_assistance_id)
     else:
         main(True, args.detached_award_procurement_id)
-
-    # python usaspending_api/database_scripts/job_archive/compare_transaction_record.py --detached_award_procurement_id 17459715

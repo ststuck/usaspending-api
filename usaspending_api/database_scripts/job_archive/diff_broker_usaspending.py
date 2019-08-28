@@ -1,3 +1,10 @@
+# Jira Ticket Number(s): <DEV-2479, DEV-3319>
+# Expected CLI: $ python usaspending_api/database_scripts/job_archive/diff_broker_usaspending.py
+# Purpose:
+#   Create a table which includes identification details of transaction records which
+#   contain discrepencies between Broker and USAspending outside of the intential
+#   discrepencies being introduced (Types, column names, upper-casing strings, etc)
+
 import argparse
 import logging
 import math
