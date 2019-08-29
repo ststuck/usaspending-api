@@ -1,4 +1,6 @@
 SELECT
+    usaspending.published_award_financial_assistance_id,
+    usaspending.transaction_id,
         broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE AS created_at,
         broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE AS updated_at,
         broker.action_date IS DISTINCT FROM usaspending.action_date::date::text AS action_date,
@@ -194,7 +196,7 @@ INNER JOIN
             high_comp_officer5_amount::numeric(23,2),
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM published_award_financial_assistance
-        WHERE published_award_financial_assistance_id = <>'
+        WHERE published_award_financial_assistance_id = {id}'
     ) AS broker(
         created_at TIMESTAMP WITHOUT TIME ZONE,
         updated_at TIMESTAMP WITHOUT TIME ZONE,

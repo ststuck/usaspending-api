@@ -47,16 +47,16 @@ FROM
 """
 
 GLOBALS = {
+    "broker_db": os.environ["DATA_BROKER_DATABASE_URL"],
+    "chunk_size": 250000,
+    "ending_id": None,
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
-    "starting_id": None,
-    "ending_id": None,
-    "chunk_size": 250000,
-    "temp_table": "temp_dev_3319_problematic_transactions",
     "script_dir": Path(__file__).resolve().parent,
-    "usaspending_db": os.environ["DATABASE_URL"],
-    "broker_db": os.environ["DATA_BROKER_DATABASE_URL"],
+    "starting_id": None,
+    "temp_table": "temp_dev_3319_problematic_transaction",
     "transaction_types": ["fabs", "fpds"],
+    "usaspending_db": os.environ["DATABASE_URL"],
 }
 
 
