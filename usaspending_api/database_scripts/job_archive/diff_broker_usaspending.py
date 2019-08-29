@@ -133,8 +133,8 @@ def runner(transaction_type):
             min_id, max_id = return_min_max_ids(func_config["min_max_sql"], cursor)
             total = max_id - min_id + 1
 
-            log("Min Published_Award_Financial_Assistance_ID: {:,}".format(min_id), transaction_type)
-            log("Max Published_Award_Financial_Assistance_ID: {:,}".format(max_id), transaction_type)
+            log("Min {} ID: {:,}".format(transaction_type, min_id), transaction_type)
+            log("Max {} ID: {:,}".format(transaction_type, max_id), transaction_type)
             log("=====> IDs in range: {:,} <=====".format(total), transaction_type)
 
     with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
