@@ -99,7 +99,7 @@ SELECT
             CASE WHEN broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount THEN CONCAT('"high_comp_officer5_amount": {"broker": "', broker.high_comp_officer5_amount::text, '", "usaspending": "', usaspending.officer_5_amount::text, '"}') ELSE null END,
             CASE WHEN broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name THEN CONCAT('"high_comp_officer5_full_na": {"broker": "', broker.high_comp_officer5_full_na::text, '", "usaspending": "', usaspending.officer_5_name::text, '"}') ELSE null END
         )
-    , '}') as investigation_json
+    , '}') as fields_diff_json
 FROM transaction_fabs AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN

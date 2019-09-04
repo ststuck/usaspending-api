@@ -28,7 +28,8 @@ CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
     broker_record_create timestamp with time zone,
     broker_record_update timestamp with time zone,
     usaspending_record_create timestamp with time zone,
-    usaspending_record_update timestamp with time zone
+    usaspending_record_update timestamp with time zone,
+    fields_diff_json jsonb
 )
 """
 
@@ -54,7 +55,7 @@ GLOBALS = {
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
     "script_dir": Path(__file__).resolve().parent,
     "starting_id": None,
-    "temp_table": "temp_dev_3319_problematic_transaction",
+    "temp_table": "temp_dev3319_transactions_with_diff",
     "transaction_types": ["fabs", "fpds"],
     "usaspending_db": os.environ["DATABASE_URL"],
 }
