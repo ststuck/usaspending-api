@@ -2,17 +2,26 @@
 # Expected CLI: $ python usaspending_api/database_scripts/job_archive/diff_broker_usaspending.py
 # Purpose:
 #   Create a table which includes identification details of transaction records which
-#   contain discrepencies between Broker and USAspending outside of the intential
+#   contain discrepencies between Broker and USAspending outside of the intentional
 #   discrepencies being introduced (Types, column names, upper-casing strings, etc)
+#   fields_diff_json contains a json doc of the field(s) and the two values
+#   (the value from Broker and the value from USAspending)
 
 import argparse
 import logging
 import math
 import os
 import psycopg2
+import sys
 import time
 
 from pathlib import Path
+
+# Obtuse logic to import this helper module no matter where this script is run
+import_path = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.append(str(import_path))
+
+from usaspending_api.common.helpers.date_helper import cast_datetime_to_naive, datetime_command_line_argument_type
 
 
 CREATE_TEMP_TABLE = """
@@ -50,10 +59,12 @@ FROM
 GLOBALS = {
     "broker_db": os.environ["DATA_BROKER_DATABASE_URL"],
     "chunk_size": 250000,
+    "ending_action_date": None,
     "ending_id": None,
     "fabs": {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"},
     "fpds": {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"},
     "script_dir": Path(__file__).resolve().parent,
+    "starting_action_date": None,
     "starting_id": None,
     "temp_table": "temp_dev3319_transactions_with_diff",
     "transaction_types": ["fabs", "fpds"],
@@ -118,6 +129,18 @@ def log(msg, transaction_type=None):
         logger.info(msg)
 
 
+def create_min_max_sql(sql):
+    predicate = []
+    if GLOBALS["starting_action_date"]:
+        predicate.append("action_date >= '{}'".format(cast_datetime_to_naive(GLOBALS["starting_action_date"])))
+    if GLOBALS["ending_action_date"]:
+        predicate.append("action_date <= '{}'".format(cast_datetime_to_naive(GLOBALS["ending_action_date"])))
+    if predicate:
+        sql += " WHERE " + " AND ".join(p for p in predicate)
+
+    return sql
+
+
 def return_min_max_ids(sql, cursor):
     cursor.execute(sql)
     results = cursor.fetchall()
@@ -131,7 +154,8 @@ def runner(transaction_type):
     func_config = GLOBALS[transaction_type]
     with psycopg2.connect(dsn=GLOBALS["broker_db"]) as connection:
         with connection.cursor() as cursor:
-            min_id, max_id = return_min_max_ids(func_config["min_max_sql"], cursor)
+            fetch_id_sql = create_min_max_sql(func_config["min_max_sql"])
+            min_id, max_id = return_min_max_ids(fetch_id_sql, cursor)
             total = max_id - min_id + 1
 
             log("Min {} ID: {:,}".format(transaction_type, min_id), transaction_type)
@@ -170,6 +194,7 @@ def create_indexes():
         "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_update ON {table} USING BTREE(broker_record_update) WITH (fillfactor=99)",
         "CREATE INDEX IF NOT EXISTS ix_{table}_usa_rec_update ON {table} USING BTREE(usaspending_record_update) WITH (fillfactor=99)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_{table}_transaction_id ON {table} USING BTREE(transaction_id) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_diff_jsonb ON {table} USING gin(fields_diff_json jsonb_path_ops)",
     ]
 
     with psycopg2.connect(dsn=GLOBALS["usaspending_db"]) as connection:
@@ -192,14 +217,33 @@ if __name__ == "__main__":
     parser.add_argument("--create-indexes", action="store_true")
     parser.add_argument("--max-id", type=int)
     parser.add_argument("--min-id", type=int)
-    parser.add_argument("--one-type", choices=["fpds", "fabs"])
+    parser.add_argument(
+        "--start-datetime",
+        type=datetime_command_line_argument_type(naive=True),  # Broker date/times are naive.
+        help="Processes transactions updated on or after the UTC date/time "
+        "provided. yyyy-mm-dd hh:mm:ss is always a safe format. Wrap in "
+        "quotes if date/time contains spaces. If added it will add significant "
+        "time to the broker query obtaining the min and max IDs",
+    )
+
+    parser.add_argument(
+        "--end-datetime",
+        type=datetime_command_line_argument_type(naive=True),  # Broker date/times are naive.
+        help="Processes transactions updated prior to the UTC date/time "
+        "provided. yyyy-mm-dd hh:mm:ss is always a safe format. Wrap in "
+        "quotes if date/time contains spaces. If added it will add significant "
+        "time to the broker query obtaining the min and max IDs",
+    )
+    parser.add_argument("--one-type", choices=GLOBALS["transaction_types"])
     parser.add_argument("--recreate-table", action="store_true")
     args = parser.parse_args()
 
     GLOBALS["chunk_size"] = args.chunk_size
     GLOBALS["drop_table"] = args.recreate_table
     GLOBALS["ending_id"] = args.max_id
+    GLOBALS["ending_action_date"] = args.end_datetime
     GLOBALS["run_indexes"] = args.create_indexes
+    GLOBALS["starting_action_date"] = args.start_datetime
     GLOBALS["starting_id"] = args.min_id
     if args.one_type:
         GLOBALS["transaction_types"] = [args.one_type]
