@@ -21,7 +21,10 @@ from pathlib import Path
 import_path = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.append(str(import_path))
 
-from usaspending_api.common.helpers.date_helper import cast_datetime_to_naive, datetime_command_line_argument_type
+from usaspending_api.common.helpers.date_helper import (
+    cast_datetime_to_naive,
+    datetime_command_line_argument_type,
+)  # noqa
 
 
 CREATE_TEMP_TABLE = """
