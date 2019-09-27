@@ -14,9 +14,11 @@ class BaseAwardSearchModel(models.Model):
         - Django filter queryset logic for matviews
         - API views obtaining data from the matviews
     """
+
     keyword_ts_vector = SearchVectorField()
     award_ts_vector = SearchVectorField()
     recipient_name_ts_vector = SearchVectorField()
+    treasury_account_identifiers = ArrayField(models.IntegerField(), default=None)
     award = models.OneToOneField(Award, primary_key=True)
     category = models.TextField()
     type = models.TextField()
