@@ -1,4 +1,5 @@
 import logging
+import random
 
 from datetime import datetime, timezone, timedelta
 from django.core.management import call_command
@@ -8,12 +9,16 @@ from typing import List
 from tempfile import NamedTemporaryFile
 
 from usaspending_api.common.helpers.date_helper import datetime_command_line_argument_type
-from usaspending_api.common.helpers.fiscal_year_helpers import convert_fiscal_quarter_to_dates, previous_fiscal_quarter, fiscal_year_and_quarter_from_datetime
+from usaspending_api.common.helpers.fiscal_year_helpers import (
+    convert_fiscal_quarter_to_dates,
+    previous_fiscal_quarter,
+    fiscal_year_and_quarter_from_datetime,
+)
 from usaspending_api.common.helpers.timing_helpers import Timer
 
 logger = logging.getLogger("console")
 
-BATCH_SIZE = 45000
+BATCH_SIZE = 50000
 
 
 class Command(BaseCommand):
@@ -124,14 +129,15 @@ def search_discrepencies_for_transactions(
 ) -> List[int]:
 
     logger.info("Filtering <{}> between {} - {}".format(system, lower_datetime, upper_datetime))
+    cursor_name = "tws_cursor_{}".format(str(random.getrandbits(128))[:5])
 
     predicate = "system = '{}' AND action_date BETWEEN '{}' AND '{}' ".format(system, lower_datetime, upper_datetime)
     with transaction.atomic(), connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
-        sql = "DECLARE temp_script_cursor CURSOR FOR SELECT {key} FROM {table} WHERE {predicate} "
-        db_cursor.execute(sql.format(key="broker_surrogate_id", table=table, predicate=predicate))
+        sql = "DECLARE {cursor} CURSOR FOR SELECT {key} FROM {table} WHERE {predicate} "
+        db_cursor.execute(sql.format(cursor=cursor_name, key="broker_surrogate_id", table=table, predicate=predicate))
 
         while True:
-            db_cursor.execute("FETCH {} FROM temp_script_cursor".format(BATCH_SIZE))
+            db_cursor.execute("FETCH {next} FROM {cursor}".format(next=BATCH_SIZE, cursor=cursor_name))
             chunk = db_cursor.fetchall()
             if not chunk:
                 break
