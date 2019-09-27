@@ -8,7 +8,7 @@ from typing import List
 from tempfile import NamedTemporaryFile
 
 from usaspending_api.common.helpers.date_helper import datetime_command_line_argument_type
-from usaspending_api.common.helpers.fiscal_year_helpers import convert_fiscal_quarter_to_dates, previous_fiscal_quarter
+from usaspending_api.common.helpers.fiscal_year_helpers import convert_fiscal_quarter_to_dates, previous_fiscal_quarter, fiscal_year_and_quarter_from_datetime
 from usaspending_api.common.helpers.timing_helpers import Timer
 
 logger = logging.getLogger("console")
@@ -23,9 +23,13 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--closing-time", type=datetime_command_line_argument_type(naive=False), required=True)
         parser.add_argument("--diff-table", type=str, required=True)
-        parser.add_argument("--start-fy", help="the fiscal year", type=int, required=True)
-        parser.add_argument("--start-quarter", help="the fiscal quarter", type=int, required=True)
         parser.add_argument("--system", choices=("fpds", "fabs"), required=True)
+        parser.add_argument(
+            "--start-datetime",
+            type=datetime_command_line_argument_type(naive=False),
+            help="the start week (go back in time)",
+            required=True,
+        )
 
     def handle(self, *args, **options):
         self.closing_time = options["closing_time"]
@@ -33,10 +37,9 @@ class Command(BaseCommand):
         self.failed_batches = []
         self.table = options["diff_table"]
 
-        curr_fy = options["start_fy"]
-        curr_fq = options["start_quarter"]
+        curr_fy, curr_fq = fiscal_year_and_quarter_from_datetime(options["start_datetime"])
 
-        logger.info("==== Starting Tony's Weekend Saver ====")
+        logger.info("======= Starting Tony's Weekend Saver =======")
         logger.info("  [{}] Starting FY{}Q{} using {}".format(self.system, curr_fy, curr_fq, self.table))
         logger.info("  Desired End Datetime = {}".format(self.closing_time))
 
@@ -44,12 +47,14 @@ class Command(BaseCommand):
         all_done = False
 
         while not all_done:
-            logger.info("Running FY{}Q{}".format(curr_fy, curr_fq))
+            logger.info("===== Running FY{}Q{} =====".format(curr_fy, curr_fq))
             quarter_begin, quarter_end = convert_fiscal_quarter_to_dates(curr_fy, curr_fq)
             week_start = quarter_end
             week_end = quarter_end - timedelta(days=7)
 
             while not all_done:
+                if len(self.failed_batches) > 2:
+                    raise RuntimeError("TOO MANY FAILURES")
                 if self.average_chunk_seconds:
                     curr_time = datetime.now(timezone.utc)
                     next_run_estimated_end_datetime = curr_time + timedelta(seconds=self.average_chunk_seconds)
@@ -76,7 +81,7 @@ class Command(BaseCommand):
                     )
 
                 if week_end <= quarter_begin:
-                    logger.info("Completed FY{}Q{}".format(curr_fy, curr_fq))
+                    logger.info("=== Completed FY{}Q{} ===\n".format(curr_fy, curr_fq))
                     curr_fy, curr_fq = previous_fiscal_quarter(curr_fy, curr_fq)
                     break
 

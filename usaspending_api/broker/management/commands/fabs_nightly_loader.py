@@ -77,7 +77,7 @@ def _get_ids(sql, submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
         params.append(tuple(afa_ids))
     if pk_ids:
         sql += " and published_award_financial_assistance_id in %s"
-        params.append(tuple(pk_ids))
+        params.append(tuple([int(k) for k in pk_ids]))
     if start_datetime:
         sql += " and updated_at >= %s"
         params.append(cast_datetime_to_naive(start_datetime))
