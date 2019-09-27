@@ -1,8 +1,8 @@
 SELECT
     'fabs'::TEXT AS "system",
     usaspending.transaction_id,
-    usaspending.published_award_financial_assistance_id AS "broker_surrogate_id",
-    usaspending.afa_generated_unique AS "broker_derived_unique_key",
+    broker.published_award_financial_assistance_id AS "broker_surrogate_id",
+    broker.afa_generated_unique AS "broker_derived_unique_key",
     concat_ws(' ', usaspending.fain, usaspending.uri) AS "piid_fain_uri",
     usaspending.unique_award_key,
     usaspending.action_date::date,
@@ -75,7 +75,7 @@ SELECT
             'legal_entity_state_code', CASE WHEN broker.legal_entity_state_code IS DISTINCT FROM usaspending.legal_entity_state_code THEN jsonb_build_object('broker', broker.legal_entity_state_code, 'usaspending', usaspending.legal_entity_state_code) ELSE null END,
             'legal_entity_state_name', CASE WHEN broker.legal_entity_state_name IS DISTINCT FROM usaspending.legal_entity_state_name THEN jsonb_build_object('broker', broker.legal_entity_state_name, 'usaspending', usaspending.legal_entity_state_name) ELSE null END,
             'modified_at', CASE WHEN broker.modified_at IS DISTINCT FROM usaspending.modified_at::TIMESTAMP WITHOUT TIME ZONE THEN jsonb_build_object('broker', broker.modified_at, 'usaspending', usaspending.modified_at) ELSE null END,
-            'afa_generated_unique', CASE WHEN broker.afa_generated_unique IS DISTINCT FROM usaspending.afa_generated_unique THEN jsonb_build_object('broker', broker.afa_generated_unique, 'usaspending', usaspending.afa_generated_unique) ELSE null END,
+            'afa_generated_unique', CASE WHEN UPPER(broker.afa_generated_unique) IS DISTINCT FROM usaspending.afa_generated_unique THEN jsonb_build_object('broker', broker.afa_generated_unique, 'usaspending', usaspending.afa_generated_unique) ELSE null END,
             'is_active', CASE WHEN broker.is_active IS DISTINCT FROM usaspending.is_active THEN jsonb_build_object('broker', broker.is_active, 'usaspending', usaspending.is_active) ELSE null END,
             'awarding_office_name', CASE WHEN broker.awarding_office_name IS DISTINCT FROM usaspending.awarding_office_name THEN jsonb_build_object('broker', broker.awarding_office_name, 'usaspending', usaspending.awarding_office_name) ELSE null END,
             'funding_office_name', CASE WHEN broker.funding_office_name IS DISTINCT FROM usaspending.funding_office_name THEN jsonb_build_object('broker', broker.funding_office_name, 'usaspending', usaspending.funding_office_name) ELSE null END,
@@ -178,7 +178,7 @@ INNER JOIN
             UPPER(REGEXP_REPLACE(legal_entity_state_code, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_state_code,
             UPPER(REGEXP_REPLACE(legal_entity_state_name, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_state_name,
             modified_at::TIMESTAMP WITHOUT TIME ZONE,
-            UPPER(afa_generated_unique) AS afa_generated_unique,
+            afa_generated_unique,
             COALESCE(is_active::boolean, False) AS is_active,
             UPPER(awarding_office_name) AS awarding_office_name,
             UPPER(funding_office_name) AS funding_office_name,
@@ -372,7 +372,7 @@ INNER JOIN
         OR (broker.legal_entity_state_code IS DISTINCT FROM usaspending.legal_entity_state_code)
         OR (broker.legal_entity_state_name IS DISTINCT FROM usaspending.legal_entity_state_name)
         OR (broker.modified_at IS DISTINCT FROM usaspending.modified_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.afa_generated_unique IS DISTINCT FROM usaspending.afa_generated_unique)
+        OR (UPPER(broker.afa_generated_unique) IS DISTINCT FROM usaspending.afa_generated_unique)
         OR (broker.is_active IS DISTINCT FROM usaspending.is_active)
         OR (broker.awarding_office_name IS DISTINCT FROM usaspending.awarding_office_name)
         OR (broker.funding_office_name IS DISTINCT FROM usaspending.funding_office_name)

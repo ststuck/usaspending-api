@@ -145,57 +145,65 @@ class Command(BaseCommand):
 
     def runner(self, transaction_type):
         func_config = getattr(self, transaction_type)
+        with Timer() as runner_timer:
 
-        with connections["data_broker"].cursor() as db_cursor:
-            fetch_id_sql = self.create_min_max_sql(transaction_type)
-            self.calculate_min_max_ids(fetch_id_sql, db_cursor)
+            with connections["data_broker"].cursor() as db_cursor:
+                fetch_id_sql = self.create_min_max_sql(transaction_type)
+                self.calculate_min_max_ids(fetch_id_sql, db_cursor)
 
-        if not all([self.starting_id, self.ending_id]):
-            raise SystemExit("No transactions to compare")
-        total = self.ending_id - self.starting_id + 1
+            if not all([self.starting_id, self.ending_id]):
+                logger.warn("<{}> No transactions to compare".format(transaction_type))
+                return
+            total = self.ending_id - self.starting_id + 1
 
-        logger.info("<{}> Min ID: {:,}".format(transaction_type, self.starting_id))
-        logger.info("<{}> Max ID: {:,}".format(transaction_type, self.ending_id))
-        logger.info("<{}> =====> IDs in range: {:,} <=====".format(transaction_type, total))
+            logger.info("<{}> Min ID: {:,}".format(transaction_type, self.starting_id))
+            logger.info("<{}> Max ID: {:,}".format(transaction_type, self.ending_id))
+            logger.info("<{}> =====> IDs in range: {:,} <=====".format(transaction_type, total))
 
-        with connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
-            _min = self.starting_id
-            while _min <= self.ending_id:
-                _max = min(_min + self.chunk_size - 1, self.ending_id)
-                progress = (_max - self.starting_id + 1) / total
+            with connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
+                _min = self.starting_id
+                while _min <= self.ending_id:
+                    _max = min(_min + self.chunk_size - 1, self.ending_id)
+                    progress = (_max - self.starting_id + 1) / total
 
-                predicate = "{col} BETWEEN {minid} AND {maxid}"
-                if transaction_type == "fabs":
-                    col = "published_award_financial_assistance_id"
-                else:
-                    col = "detached_award_procurement_id"
+                    predicate = "{col} BETWEEN {minid} AND {maxid}"
+                    if transaction_type == "fabs":
+                        col = "published_award_financial_assistance_id"
+                    else:
+                        col = "detached_award_procurement_id"
 
-                additional = []
+                    additional = []
 
-                if self.lower_datetime_bound:
-                    additional.append("updated_at >= ''{}''".format(cast_datetime_to_naive(self.lower_datetime_bound)))
-                if self.upper_datetime_bound:
-                    additional.append("updated_at <= ''{}''".format(cast_datetime_to_naive(self.upper_datetime_bound)))
-                if additional:
-                    predicate += " AND " + " AND ".join(a for a in additional)
+                    if self.lower_datetime_bound:
+                        additional.append(
+                            "updated_at >= ''{}''".format(cast_datetime_to_naive(self.lower_datetime_bound))
+                        )
+                    if self.upper_datetime_bound:
+                        additional.append(
+                            "updated_at <= ''{}''".format(cast_datetime_to_naive(self.upper_datetime_bound))
+                        )
+                    if additional:
+                        predicate += " AND " + " AND ".join(a for a in additional)
 
-                sql = func_config["sql"].format(predicate=predicate.format(col=col, minid=_min, maxid=_max))
+                    sql = func_config["sql"].format(predicate=predicate.format(col=col, minid=_min, maxid=_max))
 
-                query = "INSERT INTO {table} {sql}".format(table=self.temp_table, sql=sql)
+                    query = "INSERT INTO {table} {sql}".format(table=self.temp_table, sql=sql)
 
-                logger.info("<{}> Processing records with IDs ({:,} => {:,})".format(transaction_type, _min, _max))
-                with Timer() as chunk_timer:
-                    db_cursor.execute(query)
-                transaction.commit()
+                    logger.info("<{}> Processing records with IDs ({:,} => {:,})".format(transaction_type, _min, _max))
+                    with Timer() as chunk_timer:
+                        db_cursor.execute(query)
+                    transaction.commit()
 
-                duration = chunk_timer.as_string(chunk_timer.elapsed)
-                est_completion = chunk_timer.estimated_remaining_runtime(progress)
-                logger.info("<{}> ---> Iteration Duration: {}".format(transaction_type, duration))
-                logger.info("<{}> ---> Est. Completion: {}".format(transaction_type, est_completion))
+                    duration = chunk_timer.as_string(chunk_timer.elapsed)
+                    est_completion = runner_timer.estimated_remaining_runtime(progress)
+                    logger.info("<{}> ---> Iteration Duration: {}".format(transaction_type, duration))
+                    logger.info("<{}> ---> Est. Completion: {}".format(transaction_type, est_completion))
 
-                _min = _max + 1  # Move to next chunk
+                    _min = _max + 1  # Move to next chunk
 
-        logger.info("<{}> Completed execution".format(transaction_type))
+        logger.info(
+            "<{}> Completed execution in {}".format(transaction_type, runner_timer.as_string(runner_timer.elapsed))
+        )
 
 
 def create_indexes(target_table):

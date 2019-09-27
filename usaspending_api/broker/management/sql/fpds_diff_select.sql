@@ -1,8 +1,8 @@
 SELECT
     'fpds'::TEXT as "system",
     usaspending.transaction_id,
-    usaspending.detached_award_procurement_id AS "broker_surrogate_id",
-    usaspending.detached_award_proc_unique AS "broker_derived_unique_key",
+    broker.detached_award_procurement_id AS "broker_surrogate_id",
+    broker.detached_award_proc_unique AS "broker_derived_unique_key",
     usaspending.piid AS "piid_fain_uri",
     usaspending.unique_award_key,
     usaspending.action_date::date,
@@ -14,7 +14,7 @@ SELECT
     jsonb_strip_nulls(
         jsonb_build_object(
             'piid', CASE WHEN broker.piid IS DISTINCT FROM usaspending.piid THEN jsonb_build_object('broker', broker.piid, 'usaspending', usaspending.piid) ELSE null END,
-            'detached_award_proc_unique', CASE WHEN broker.detached_award_proc_unique IS DISTINCT FROM usaspending.detached_award_proc_unique THEN jsonb_build_object('broker', broker.detached_award_proc_unique, 'usaspending', usaspending.detached_award_proc_unique) ELSE null END,
+            'detached_award_proc_unique', CASE WHEN UPPER(broker.detached_award_proc_unique) IS DISTINCT FROM usaspending.detached_award_proc_unique THEN jsonb_build_object('broker', broker.detached_award_proc_unique, 'usaspending', usaspending.detached_award_proc_unique) ELSE null END,
             'agency_id', CASE WHEN broker.agency_id IS DISTINCT FROM usaspending.agency_id THEN jsonb_build_object('broker', broker.agency_id, 'usaspending', usaspending.agency_id) ELSE null END,
             'awarding_sub_tier_agency_c', CASE WHEN broker.awarding_sub_tier_agency_c IS DISTINCT FROM usaspending.awarding_sub_tier_agency_c THEN jsonb_build_object('broker', broker.awarding_sub_tier_agency_c, 'usaspending', usaspending.awarding_sub_tier_agency_c) ELSE null END,
             'awarding_sub_tier_agency_n', CASE WHEN broker.awarding_sub_tier_agency_n IS DISTINCT FROM usaspending.awarding_sub_tier_agency_n THEN jsonb_build_object('broker', broker.awarding_sub_tier_agency_n, 'usaspending', usaspending.awarding_sub_tier_agency_n) ELSE null END,
@@ -328,7 +328,7 @@ INNER JOIN
             updated_at::TIMESTAMP WITHOUT TIME ZONE,
             UPPER(piid) AS piid,
             detached_award_procurement_id,
-            UPPER(detached_award_proc_unique) AS detached_award_proc_unique,
+            detached_award_proc_unique,
             UPPER(agency_id) AS agency_id,
             UPPER(awarding_sub_tier_agency_c) AS awarding_sub_tier_agency_c,
             UPPER(awarding_sub_tier_agency_n) AS awarding_sub_tier_agency_n,
@@ -934,7 +934,7 @@ INNER JOIN
         (broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE)
         OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE)
         OR (broker.piid IS DISTINCT FROM usaspending.piid)
-        OR (broker.detached_award_proc_unique IS DISTINCT FROM usaspending.detached_award_proc_unique)
+        OR (UPPER(broker.detached_award_proc_unique) IS DISTINCT FROM usaspending.detached_award_proc_unique)
         OR (broker.agency_id IS DISTINCT FROM usaspending.agency_id)
         OR (broker.awarding_sub_tier_agency_c IS DISTINCT FROM usaspending.awarding_sub_tier_agency_c)
         OR (broker.awarding_sub_tier_agency_n IS DISTINCT FROM usaspending.awarding_sub_tier_agency_n)

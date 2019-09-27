@@ -67,7 +67,7 @@ def get_new_submission_ids(last_load_date):
         return tuple(row[0] for row in cursor.fetchall())
 
 
-def _get_ids(sql, submission_ids, afa_ids, start_datetime, end_datetime):
+def _get_ids(sql, submission_ids, afa_ids, pk_ids, start_datetime, end_datetime):
     params = []
     if submission_ids is not None:
         sql += " and submission_id in %s"
@@ -75,6 +75,9 @@ def _get_ids(sql, submission_ids, afa_ids, start_datetime, end_datetime):
     if afa_ids:
         sql += " and afa_generated_unique in %s"
         params.append(tuple(afa_ids))
+    if pk_ids:
+        sql += " and published_award_financial_assistance_id in %s"
+        params.append(tuple(pk_ids))
     if start_datetime:
         sql += " and updated_at >= %s"
         params.append(cast_datetime_to_naive(start_datetime))
@@ -86,18 +89,18 @@ def _get_ids(sql, submission_ids, afa_ids, start_datetime, end_datetime):
         return tuple(row[0] for row in cursor.fetchall())
 
 
-def get_fabs_transaction_ids(submission_ids, afa_ids, start_datetime, end_datetime):
+def get_fabs_transaction_ids(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime):
     sql = """
         select  published_award_financial_assistance_id
         from    published_award_financial_assistance
         where   is_active is true
     """
-    ids = _get_ids(sql, submission_ids, afa_ids, start_datetime, end_datetime)
+    ids = _get_ids(sql, submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
     logger.info("Number of records to insert/update: {:,}".format(len(ids)))
     return ids
 
 
-def get_fabs_records_to_delete(submission_ids, afa_ids, start_datetime, end_datetime):
+def get_fabs_records_to_delete(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime):
     sql = """
         select  distinct upper(afa_generated_unique)
         from    published_award_financial_assistance p
@@ -108,7 +111,7 @@ def get_fabs_records_to_delete(submission_ids, afa_ids, start_datetime, end_date
                     where   afa_generated_unique = p.afa_generated_unique and is_active is true
                 )
     """
-    ids = _get_ids(sql, submission_ids, afa_ids, start_datetime, end_datetime)
+    ids = _get_ids(sql, submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
     logger.info("Number of records to delete: {:,}".format(len(ids)))
     return ids
 
@@ -152,6 +155,14 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
+            "--id-file",
+            metavar="FILEPATH",
+            type=str,
+            help="A file containing only broker transaction IDs (published_award_financial_assistance_id) "
+            "to reload, one ID per line. Nonexistent IDs will be ignored.",
+        )
+
+        parser.add_argument(
             "--start-datetime",
             type=datetime_command_line_argument_type(naive=True),  # Broker date/times are naive.
             help="Processes transactions updated on or after the UTC date/time "
@@ -190,11 +201,12 @@ class Command(BaseCommand):
         else:
             submission_ids = tuple(options["submission_ids"]) if options["submission_ids"] else None
             afa_ids = read_afa_ids_from_file(options["afa_id_file"]) if options["afa_id_file"] else None
+            pk_ids = read_afa_ids_from_file(options["id_file"]) if options["id_file"] else None
             start_datetime = options["start_datetime"]
             end_datetime = options["end_datetime"]
 
         # If no other processing options were provided than this is an incremental load.
-        is_incremental_load = not any((reload_all, submission_ids, afa_ids, start_datetime, end_datetime))
+        is_incremental_load = not any((reload_all, submission_ids, afa_ids, pk_ids, start_datetime, end_datetime))
 
         if is_incremental_load:
             last_load_date = get_last_load_date()
@@ -206,10 +218,10 @@ class Command(BaseCommand):
 
         else:
             with timer("obtaining delete records", logger.info):
-                ids_to_delete = get_fabs_records_to_delete(submission_ids, afa_ids, start_datetime, end_datetime)
+                ids_to_delete = get_fabs_records_to_delete(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
 
             with timer("retrieving/diff-ing FABS Data", logger.info):
-                ids_to_upsert = get_fabs_transaction_ids(submission_ids, afa_ids, start_datetime, end_datetime)
+                ids_to_upsert = get_fabs_transaction_ids(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
 
             update_award_ids = delete_fabs_transactions(ids_to_delete, do_not_log_deletions)
             upsert_fabs_transactions(ids_to_upsert, update_award_ids)
