@@ -625,7 +625,7 @@ INNER JOIN
             high_comp_officer5_amount::numeric(23,2),
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM detached_award_procurement
-        WHERE detached_award_procurement_id BETWEEN {minid} AND {maxid}'
+        WHERE {predicate}'
     ) AS broker (
         created_at TIMESTAMP WITHOUT time ZONE,
         updated_at TIMESTAMP WITHOUT time ZONE,

@@ -28,11 +28,12 @@ CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
 )
 """
 
-GET_MIN_MAX_FABS_SQL_STRING = """
+GET_MIN_MAX_SQL_STRING = """
+{cte}
 SELECT
-    MIN(published_award_financial_assistance_id), MAX(published_award_financial_assistance_id)
+    MIN({id_column}), MAX({id_column})
 FROM
-    published_award_financial_assistance
+    {table}
 """
 
 GET_MIN_MAX_FPDS_SQL_STRING = """
@@ -45,9 +46,10 @@ FROM
 
 class Command(BaseCommand):
     help = "Compare Transaction records from the source system to a USAspending DB"
-    chunk_size = 250000
+    chunk_size = 500000
     temp_table = "temp_dev3319_transactions_with_diff"
     transaction_types = ["fabs", "fpds"]
+    sql_script_dir = Path(__file__).resolve().parent.parent / "sql"
 
     def handle(self, *args, **options):
         self.chunk_size = options["chunk_size"]
@@ -60,8 +62,8 @@ class Command(BaseCommand):
         if options["one_type"]:
             self.transaction_types = [options["one_type"]]
 
-        self.fabs = {"min_max_sql": GET_MIN_MAX_FABS_SQL_STRING, "sql": "", "diff_sql_file": "fabs_diff_select.sql"}
-        self.fpds = {"min_max_sql": GET_MIN_MAX_FPDS_SQL_STRING, "sql": "", "diff_sql_file": "fpds_diff_select.sql"}
+        self.fabs = {"sql": "", "diff_sql_file": "fabs_diff_select.sql"}
+        self.fpds = {"sql": "", "diff_sql_file": "fpds_diff_select.sql"}
 
         self.main()
 
@@ -100,68 +102,100 @@ class Command(BaseCommand):
             self.create_indexes()
 
     def verify_or_create_table(self):
-        db_cursor = connections[DEFAULT_DB_ALIAS].cursor()
-        if self.drop_table:
-            db_cursor.execute("DROP TABLE IF EXISTS {}".format(self.temp_table))
-        db_cursor.execute(CREATE_TEMP_TABLE.format(table=self.temp_table))
+        with connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
+            if self.drop_table:
+                db_cursor.execute("DROP TABLE IF EXISTS {}".format(self.temp_table))
+            db_cursor.execute(CREATE_TEMP_TABLE.format(table=self.temp_table))
 
     def read_sql(self, transaction_type):
-        p = Path(self.script_dir).joinpath(getattr(self, transaction_type)["diff_sql_file"])
+        p = Path(self.sql_script_dir).joinpath(getattr(self, transaction_type)["diff_sql_file"])
         with p.open() as f:
             return "".join(f.readlines())
 
-    def create_min_max_sql(self, sql):
+    def create_min_max_sql(self, transaction_type):
+        cte = ""
+        cte_name = "id_cte"
         predicate = []
+
+        if transaction_type == "fpds":
+            table = "detached_award_procurement"
+            id_column = "detached_award_procurement_id"
+        else:
+            table = "published_award_financial_assistance"
+            id_column = "published_award_financial_assistance_id"
+
+        if self.lower_datetime_bound or self.upper_datetime_bound:
+            cte = "WITH {cte} AS (SELECT {id_col} FROM {table}".format(cte=cte_name, id_col=id_column, table=table)
+            table = cte_name
         if self.lower_datetime_bound:
             predicate.append("updated_at >= '{}'".format(cast_datetime_to_naive(self.lower_datetime_bound)))
         if self.upper_datetime_bound:
             predicate.append("updated_at <= '{}'".format(cast_datetime_to_naive(self.upper_datetime_bound)))
         if predicate:
-            sql += " WHERE " + " AND ".join(p for p in predicate)
+            cte += " WHERE " + " AND ".join(p for p in predicate) + ")"
 
-        return sql
+        return GET_MIN_MAX_SQL_STRING.format(table=table, id_column=id_column, cte=cte)
 
-    def return_min_max_ids(self, sql, cursor):
+    def calculate_min_max_ids(self, sql, cursor):
         cursor.execute(sql)
         results = cursor.fetchall()
         min_id, max_id = results[0]
         self.starting_id = self.starting_id or min_id
         self.ending_id = self.ending_id or max_id
-        return self.starting_id, self.ending_id
 
     def runner(self, transaction_type):
         func_config = getattr(self, transaction_type)
 
-        cursor = connections["data_broker"].cursor()
-        fetch_id_sql = self.create_min_max_sql(func_config["min_max_sql"])
-        min_id, max_id = self.return_min_max_ids(fetch_id_sql, cursor)
-        total = max_id - min_id + 1
+        with connections["data_broker"].cursor() as db_cursor:
+            fetch_id_sql = self.create_min_max_sql(transaction_type)
+            self.calculate_min_max_ids(fetch_id_sql, db_cursor)
 
-        logger.info("Min {} ID: {:,}".format(transaction_type, min_id), transaction_type)
-        logger.info("Max {} ID: {:,}".format(transaction_type, max_id), transaction_type)
-        logger.info("=====> IDs in range: {:,} <=====".format(total), transaction_type)
+        if not all([self.starting_id, self.ending_id]):
+            raise SystemExit("No transactions to compare")
+        total = self.ending_id - self.starting_id + 1
 
-        db_cursor = connections[DEFAULT_DB_ALIAS].cursor()
-        _min = min_id
-        while _min <= max_id:
-            _max = min(_min + self.chunk_size - 1, max_id)
-            progress = (_max - min_id + 1) / total
-            sql = func_config["sql"].format(minid=_min, maxid=_max)
-            query = "INSERT INTO {table} {sql}".format(table=self.temp_table, sql=sql)
+        logger.info("<{}> Min ID: {:,}".format(transaction_type, self.starting_id))
+        logger.info("<{}> Max ID: {:,}".format(transaction_type, self.ending_id))
+        logger.info("<{}> =====> IDs in range: {:,} <=====".format(transaction_type, total))
 
-            logger.info("Processing records with IDs ({:,} => {:,})".format(_min, _max), transaction_type)
-            with Timer() as chunk_timer:
-                db_cursor.execute(query)
-            transaction.commit()
+        with connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
+            _min = self.starting_id
+            while _min <= self.ending_id:
+                _max = min(_min + self.chunk_size - 1, self.ending_id)
+                progress = (_max - self.starting_id + 1) / total
 
-            duration = chunk_timer.as_string(chunk_timer.elapsed)
-            est_completion = chunk_timer.estimated_remaining_runtime(progress)
-            logger.info("---> Iteration Duration: {}".format(duration), transaction_type)
-            logger.info("---> Est. Completion: {}".format(est_completion), transaction_type)
+                predicate = "{col} BETWEEN {minid} AND {maxid}"
+                if transaction_type == "fabs":
+                    col = "published_award_financial_assistance_id"
+                else:
+                    col = "detached_award_procurement_id"
 
-            _min = _max + 1  # Move to next chunk
+                additional = []
 
-        logger.info("Completed execution on {}".format(transaction_type), transaction_type)
+                if self.lower_datetime_bound:
+                    additional.append("updated_at >= ''{}''".format(cast_datetime_to_naive(self.lower_datetime_bound)))
+                if self.upper_datetime_bound:
+                    additional.append("updated_at <= ''{}''".format(cast_datetime_to_naive(self.upper_datetime_bound)))
+                if additional:
+                    predicate += " AND " + " AND ".join(a for a in additional)
+
+                sql = func_config["sql"].format(predicate=predicate.format(col=col, minid=_min, maxid=_max))
+
+                query = "INSERT INTO {table} {sql}".format(table=self.temp_table, sql=sql)
+
+                logger.info("<{}> Processing records with IDs ({:,} => {:,})".format(transaction_type, _min, _max))
+                with Timer() as chunk_timer:
+                    db_cursor.execute(query)
+                transaction.commit()
+
+                duration = chunk_timer.as_string(chunk_timer.elapsed)
+                est_completion = chunk_timer.estimated_remaining_runtime(progress)
+                logger.info("<{}> ---> Iteration Duration: {}".format(transaction_type, duration))
+                logger.info("<{}> ---> Est. Completion: {}".format(transaction_type, est_completion))
+
+                _min = _max + 1  # Move to next chunk
+
+        logger.info("<{}> Completed execution".format(transaction_type))
 
 
 def create_indexes(target_table):
