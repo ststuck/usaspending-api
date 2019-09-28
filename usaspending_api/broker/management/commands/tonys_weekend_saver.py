@@ -18,7 +18,7 @@ from usaspending_api.common.helpers.timing_helpers import Timer
 
 logger = logging.getLogger("console")
 
-BATCH_SIZE = 50000
+BATCH_SIZE = 75000
 
 
 class Command(BaseCommand):
@@ -104,8 +104,10 @@ class Command(BaseCommand):
             logger.info("Script completed with no failures")
 
     def time_runner(self, lower_datetime, upper_datetime):
-        for id_batch in search_discrepencies_for_transactions(self.table, self.system, lower_datetime, upper_datetime):
-            logger.info("New batch of length {}".format(len(id_batch)))
+        for batch_num, id_batch in enumerate(
+            search_discrepencies_for_transactions(self.table, self.system, lower_datetime, upper_datetime)
+        ):
+            logger.info("Processing batch {} of {} transactions".format(batch_num, len(id_batch)))
             tempfile = NamedTemporaryFile(mode="w")
             tempfile.write("\n".join([str(id) for id in id_batch]))
             tempfile.seek(0)
