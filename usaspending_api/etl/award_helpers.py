@@ -188,7 +188,7 @@ def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
     )
 
     if award_tuple:
-        values = [award_tuple, award_tuple, award_tuple]
+        values = [award_tuple, award_tuple]
         aggregate_transaction_cte = _aggregate_transaction_cte.format(" WHERE tn.award_id IN %s ")
         extra_fpds_fields = _extra_fpds_fields.format(" WHERE tn.award_id IN %s ")
     else:

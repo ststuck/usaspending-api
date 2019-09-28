@@ -218,7 +218,9 @@ class Command(BaseCommand):
 
         else:
             with timer("obtaining delete records", logger.info):
-                ids_to_delete = get_fabs_records_to_delete(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
+                ids_to_delete = get_fabs_records_to_delete(
+                    submission_ids, afa_ids, pk_ids, start_datetime, end_datetime
+                )
 
             with timer("retrieving/diff-ing FABS Data", logger.info):
                 ids_to_upsert = get_fabs_transaction_ids(submission_ids, afa_ids, pk_ids, start_datetime, end_datetime)
