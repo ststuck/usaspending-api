@@ -208,7 +208,7 @@ def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
         "    type = eff.type, "
         "    type_description = eff.type_description, "
         "    fpds_agency_id = eff.agency_id, "
-        "    fpds_parent_agency_id = eff.referenced_idv_agency_iden, "
+        "    fpds_parent_agency_id = eff.referenced_idv_agency_iden "
         ""
         "  FROM txn_totals AS t "
         "  INNER JOIN extra_fpds_fields AS eff ON t.award_id = eff.award_id "
