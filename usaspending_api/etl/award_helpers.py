@@ -106,6 +106,7 @@ def update_awards(award_tuple: Optional[tuple] = None) -> int:
         "WITH {}, {}, {} "
         "UPDATE awards a "
         "  SET "
+        "    earliest_transaction_id = e.id, "
         "    date_signed = e.action_date, "
         "    description = e.description, "
         "    period_of_performance_start_date = e.period_of_performance_start_date, "
@@ -139,7 +140,49 @@ def update_awards(award_tuple: Optional[tuple] = None) -> int:
 
 
 def update_assistance_awards(award_tuple: Optional[tuple] = None) -> int:
-    return 0
+    _sql_update = str(
+        "WITH executive_comp AS ( "
+        "  SELECT DISTINCT ON (tn.award_id) "
+        "    tn.award_id, "
+        "    fabs.officer_1_amount, "
+        "    fabs.officer_1_name, "
+        "    fabs.officer_2_amount, "
+        "    fabs.officer_2_name, "
+        "    fabs.officer_3_amount, "
+        "    fabs.officer_3_name, "
+        "    fabs.officer_4_amount, "
+        "    fabs.officer_4_name, "
+        "    fabs.officer_5_amount, "
+        "    fabs.officer_5_name "
+        "  FROM transaction_normalized tn "
+        "  INNER JOIN transaction_fabs AS fabs ON tn.id = fabs.transaction_id "
+        "  WHERE fabs.officer_1_name IS NOT NULL {} "
+        "  ORDER BY tn.award_id, tn.action_date DESC, tn.modification_number DESC, tn.id DESC "
+        ") "
+        "UPDATE awards a "
+        "  SET "
+        "    officer_1_amount = ec.officer_1_amount, "
+        "    officer_1_name = ec.officer_1_name, "
+        "    officer_2_amount = ec.officer_2_amount, "
+        "    officer_2_name = ec.officer_2_name, "
+        "    officer_3_amount = ec.officer_3_amount, "
+        "    officer_3_name = ec.officer_3_name, "
+        "    officer_4_amount = ec.officer_4_amount, "
+        "    officer_4_name = ec.officer_4_name, "
+        "    officer_5_amount = ec.officer_5_amount, "
+        "    officer_5_name = ec.officer_5_name "
+        "  FROM executive_comp AS ec "
+        "  WHERE ec.award_id = a.id "
+    )
+
+    if award_tuple:
+        values = [award_tuple]
+        sql_update = _sql_update.format("AND tn.award_id IN %s ")
+    else:
+        values = None
+        sql_update = _sql_update.format("")
+
+    return execute_database_insert_statement(sql_update, values)
 
 
 def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
@@ -187,19 +230,42 @@ def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
         ")"
     )
 
+    _executive_comp_cte = str(
+        "executive_comp AS ( "
+        "  SELECT DISTINCT ON (tn.award_id) "
+        "    tn.award_id, "
+        "    fpds.officer_1_amount, "
+        "    fpds.officer_1_name, "
+        "    fpds.officer_2_amount, "
+        "    fpds.officer_2_name, "
+        "    fpds.officer_3_amount, "
+        "    fpds.officer_3_name, "
+        "    fpds.officer_4_amount, "
+        "    fpds.officer_4_name, "
+        "    fpds.officer_5_amount, "
+        "    fpds.officer_5_name "
+        "  FROM transaction_normalized tn "
+        "  INNER JOIN transaction_fpds AS fpds ON tn.id = fpds.transaction_id "
+        "  WHERE fpds.officer_1_name IS NOT NULL {} "
+        "  ORDER BY tn.award_id, tn.action_date DESC, tn.modification_number DESC, tn.id DESC "
+        ") "
+    )
+
     if award_tuple:
-        values = [award_tuple, award_tuple]
+        values = [award_tuple, award_tuple, award_tuple]
         aggregate_transaction_cte = _aggregate_transaction_cte.format(" WHERE tn.award_id IN %s ")
         extra_fpds_fields = _extra_fpds_fields.format(" WHERE tn.award_id IN %s ")
+        executive_comp_cte = _executive_comp_cte.format(" AND tn.award_id IN %s ")
     else:
         values = None
         aggregate_transaction_cte = _aggregate_transaction_cte.format("")
         extra_fpds_fields = _extra_fpds_fields.format("")
+        executive_comp_cte = _executive_comp_cte.format("")
     # construct a sql query that uses the latest txn contract common table expression above and joins it to the
     # corresponding award. that joined data is used to update awards fields as appropriate (currently, there's only one
     # trasnaction_contract field that trickles up and updates an award record: base_and_all_options_value)
     _sql_update = str(
-        "WITH {}, {}"
+        "WITH {}, {}, {}"
         "UPDATE awards a "
         "  SET "
         "    base_and_all_options_value = t.total_base_and_options_value, "
@@ -208,14 +274,25 @@ def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
         "    type = eff.type, "
         "    type_description = eff.type_description, "
         "    fpds_agency_id = eff.agency_id, "
-        "    fpds_parent_agency_id = eff.referenced_idv_agency_iden "
+        "    fpds_parent_agency_id = eff.referenced_idv_agency_iden, "
         ""
+        "    officer_1_amount = ec.officer_1_amount, "
+        "    officer_1_name = ec.officer_1_name, "
+        "    officer_2_amount = ec.officer_2_amount, "
+        "    officer_2_name = ec.officer_2_name, "
+        "    officer_3_amount = ec.officer_3_amount, "
+        "    officer_3_name = ec.officer_3_name, "
+        "    officer_4_amount = ec.officer_4_amount, "
+        "    officer_4_name = ec.officer_4_name, "
+        "    officer_5_amount = ec.officer_5_amount, "
+        "    officer_5_name = ec.officer_5_name "
         "  FROM txn_totals AS t "
         "  INNER JOIN extra_fpds_fields AS eff ON t.award_id = eff.award_id "
+        "  LEFT JOIN executive_comp AS ec ON t.award_id = ec.award_id "
         "  WHERE t.award_id = a.id "
     )
 
-    sql_update = _sql_update.format(aggregate_transaction_cte, extra_fpds_fields)
+    sql_update = _sql_update.format(aggregate_transaction_cte, extra_fpds_fields, executive_comp_cte)
     return execute_database_insert_statement(sql_update, values)
 
 
