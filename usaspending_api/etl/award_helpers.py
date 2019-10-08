@@ -265,7 +265,7 @@ def update_contract_awards(award_tuple: Optional[tuple] = None) -> int:
     # corresponding award. that joined data is used to update awards fields as appropriate (currently, there's only one
     # trasnaction_contract field that trickles up and updates an award record: base_and_all_options_value)
     _sql_update = str(
-        "WITH {}, {}, {}"
+        "WITH {}, {}, {} "
         "UPDATE awards a "
         "  SET "
         "    base_and_all_options_value = t.total_base_and_options_value, "
