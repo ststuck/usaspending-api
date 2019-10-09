@@ -6,11 +6,11 @@ SELECT
     usaspending.piid AS "piid_fain_uri",
     usaspending.unique_award_key,
     usaspending.action_date::date,
-    usaspending.updated_at::date AS "record_last_modified",
-    broker.created_at::timestamp with time zone AS "broker_record_create",
-    broker.updated_at::timestamp with time zone AS "broker_record_update",
-    transaction_normalized.create_date::timestamp with time zone AS "usaspending_record_create",
-    transaction_normalized.update_date::timestamp with time zone AS "usaspending_record_update",
+    usaspending.updated_at AS "record_last_modified",
+    broker.created_at AS "broker_record_create",
+    broker.updated_at AS "broker_record_update",
+    transaction_normalized.create_date AS "usaspending_record_create",
+    transaction_normalized.update_date AS "usaspending_record_update",
     jsonb_strip_nulls(
         jsonb_build_object(
             'piid', CASE WHEN broker.piid IS DISTINCT FROM usaspending.piid THEN jsonb_build_object('broker', broker.piid, 'usaspending', usaspending.piid) ELSE null END,
@@ -300,6 +300,8 @@ SELECT
             'place_of_perform_county_co', CASE WHEN broker.place_of_perform_county_co IS DISTINCT FROM usaspending.place_of_perform_county_co THEN jsonb_build_object('broker', broker.place_of_perform_county_co, 'usaspending', usaspending.place_of_perform_county_co) ELSE null END,
             'place_of_performance_zip5', CASE WHEN broker.place_of_performance_zip5 IS DISTINCT FROM usaspending.place_of_performance_zip5 THEN jsonb_build_object('broker', broker.place_of_performance_zip5, 'usaspending', usaspending.place_of_performance_zip5) ELSE null END,
             'place_of_perform_zip_last4', CASE WHEN broker.place_of_perform_zip_last4 IS DISTINCT FROM usaspending.place_of_perform_zip_last4 THEN jsonb_build_object('broker', broker.place_of_perform_zip_last4, 'usaspending', usaspending.place_of_perform_zip_last4) ELSE null END,
+            'created_at', CASE WHEN broker.created_at IS DISTINCT FROM usaspending.created_at THEN jsonb_build_object('broker', broker.created_at, usaspending.created_at) ELSE null END,
+            'updated_at', CASE WHEN broker.updated_at IS DISTINCT FROM usaspending.updated_at THEN jsonb_build_object('broker', broker.updated_at, usaspending.updated_at) ELSE null END,
             'cage_code', CASE WHEN broker.cage_code IS DISTINCT FROM usaspending.cage_code THEN jsonb_build_object('broker', broker.cage_code, 'usaspending', usaspending.cage_code) ELSE null END,
             'inherently_government_func', CASE WHEN broker.inherently_government_func IS DISTINCT FROM usaspending.inherently_government_func THEN jsonb_build_object('broker', broker.inherently_government_func, 'usaspending', usaspending.inherently_government_func) ELSE null END,
             'organizational_type', CASE WHEN broker.organizational_type IS DISTINCT FROM usaspending.organizational_type THEN jsonb_build_object('broker', broker.organizational_type, 'usaspending', usaspending.organizational_type) ELSE null END,
@@ -325,11 +327,11 @@ INNER JOIN
     SELECT * FROM dblink (
         'broker_server',
         'SELECT
-            created_at::TIMESTAMP WITHOUT TIME ZONE,
-            updated_at::TIMESTAMP WITHOUT TIME ZONE,
-            UPPER(piid) AS piid,
+            created_at::TIMESTAMP WITH TIME ZONE,
+            updated_at::TIMESTAMP WITH TIME ZONE,
             detached_award_procurement_id,
             detached_award_proc_unique,
+            UPPER(piid) AS piid,
             UPPER(agency_id) AS agency_id,
             UPPER(awarding_sub_tier_agency_c) AS awarding_sub_tier_agency_c,
             UPPER(awarding_sub_tier_agency_n) AS awarding_sub_tier_agency_n,
@@ -347,21 +349,21 @@ INNER JOIN
             UPPER(ultimate_parent_legal_enti) AS ultimate_parent_legal_enti,
             UPPER(ultimate_parent_unique_ide) AS ultimate_parent_unique_ide,
             UPPER(award_description) AS award_description,
-            UPPER(REGEXP_REPLACE(place_of_performance_zip4a, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_performance_zip4a,
-            UPPER(REGEXP_REPLACE(place_of_perform_city_name, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perform_city_name,
-            UPPER(REGEXP_REPLACE(place_of_perform_county_na, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perform_county_na,
-            UPPER(REGEXP_REPLACE(place_of_performance_congr, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_performance_congr,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_performance_zip4a, ''\s+'', '' '', ''g''))) AS place_of_performance_zip4a,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perform_city_name, ''\s+'', '' '', ''g''))) AS place_of_perform_city_name,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perform_county_na, ''\s+'', '' '', ''g''))) AS place_of_perform_county_na,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_performance_congr, ''\s+'', '' '', ''g''))) AS place_of_performance_congr,
             UPPER(awardee_or_recipient_legal) AS awardee_or_recipient_legal,
-            UPPER(REGEXP_REPLACE(legal_entity_city_name, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_city_name,
-            UPPER(REGEXP_REPLACE(legal_entity_state_code, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_state_code,
-            UPPER(REGEXP_REPLACE(legal_entity_state_descrip, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_state_descrip,
-            UPPER(REGEXP_REPLACE(legal_entity_zip4, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_zip4,
-            UPPER(REGEXP_REPLACE(legal_entity_congressional, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_congressional,
-            UPPER(REGEXP_REPLACE(legal_entity_address_line1, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_address_line1,
-            UPPER(REGEXP_REPLACE(legal_entity_address_line2, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_address_line2,
-            UPPER(REGEXP_REPLACE(legal_entity_address_line3, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_address_line3,
-            UPPER(REGEXP_REPLACE(legal_entity_country_code, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_country_code,
-            UPPER(REGEXP_REPLACE(legal_entity_country_name, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_country_name,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_city_name, ''\s+'', '' '', ''g''))) AS legal_entity_city_name,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_state_code, ''\s+'', '' '', ''g''))) AS legal_entity_state_code,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_state_descrip, ''\s+'', '' '', ''g''))) AS legal_entity_state_descrip,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_zip4, ''\s+'', '' '', ''g''))) AS legal_entity_zip4,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_congressional, ''\s+'', '' '', ''g''))) AS legal_entity_congressional,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_address_line1, ''\s+'', '' '', ''g''))) AS legal_entity_address_line1,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_address_line2, ''\s+'', '' '', ''g''))) AS legal_entity_address_line2,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_address_line3, ''\s+'', '' '', ''g''))) AS legal_entity_address_line3,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_country_code, ''\s+'', '' '', ''g''))) AS legal_entity_country_code,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_country_name, ''\s+'', '' '', ''g''))) AS legal_entity_country_name,
             UPPER(period_of_performance_star) AS period_of_performance_star,
             UPPER(period_of_performance_curr) AS period_of_performance_curr,
             UPPER(period_of_perf_potential_e) AS period_of_perf_potential_e,
@@ -382,11 +384,11 @@ INNER JOIN
             UPPER(referenced_idv_agency_desc) AS referenced_idv_agency_desc,
             UPPER(funding_agency_code) AS funding_agency_code,
             UPPER(funding_agency_name) AS funding_agency_name,
-            UPPER(REGEXP_REPLACE(place_of_performance_locat, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_performance_locat,
-            UPPER(REGEXP_REPLACE(place_of_performance_state, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_performance_state,
-            UPPER(REGEXP_REPLACE(place_of_perfor_state_desc, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perfor_state_desc,
-            UPPER(REGEXP_REPLACE(place_of_perform_country_c, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perform_country_c,
-            UPPER(REGEXP_REPLACE(place_of_perf_country_desc, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perf_country_desc,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_performance_locat, ''\s+'', '' '', ''g''))) AS place_of_performance_locat,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_performance_state, ''\s+'', '' '', ''g''))) AS place_of_performance_state,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perfor_state_desc, ''\s+'', '' '', ''g''))) AS place_of_perfor_state_desc,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perform_country_c, ''\s+'', '' '', ''g''))) AS place_of_perform_country_c,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perf_country_desc, ''\s+'', '' '', ''g''))) AS place_of_perf_country_desc,
             UPPER(idv_type) AS idv_type,
             UPPER(idv_type_description) AS idv_type_description,
             UPPER(referenced_idv_type) AS referenced_idv_type,
@@ -602,13 +604,13 @@ INNER JOIN
             UPPER(place_of_perform_state_nam) AS place_of_perform_state_nam,
             UPPER(referenced_idv_agency_name) AS referenced_idv_agency_name,
             UPPER(award_or_idv_flag) AS award_or_idv_flag,
-            UPPER(REGEXP_REPLACE(legal_entity_county_code, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_county_code,
-            UPPER(REGEXP_REPLACE(legal_entity_county_name, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_county_name,
-            UPPER(REGEXP_REPLACE(legal_entity_zip5, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_zip5,
-            UPPER(REGEXP_REPLACE(legal_entity_zip_last4, E''\\s{{2,}}|\\\\n'', '' '')) AS legal_entity_zip_last4,
-            UPPER(REGEXP_REPLACE(place_of_perform_county_co, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perform_county_co,
-            UPPER(REGEXP_REPLACE(place_of_performance_zip5, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_performance_zip5,
-            UPPER(REGEXP_REPLACE(place_of_perform_zip_last4, E''\\s{{2,}}|\\\\n'', '' '')) AS place_of_perform_zip_last4,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_county_code, ''\s+'', '' '', ''g''))) AS legal_entity_county_code,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_county_name, ''\s+'', '' '', ''g''))) AS legal_entity_county_name,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_zip5, ''\s+'', '' '', ''g''))) AS legal_entity_zip5,
+            UPPER(TRIM(REGEXP_REPLACE(legal_entity_zip_last4, ''\s+'', '' '', ''g''))) AS legal_entity_zip_last4,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perform_county_co, ''\s+'', '' '', ''g''))) AS place_of_perform_county_co,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_performance_zip5, ''\s+'', '' '', ''g''))) AS place_of_performance_zip5,
+            UPPER(TRIM(REGEXP_REPLACE(place_of_perform_zip_last4, ''\s+'', '' '', ''g''))) AS place_of_perform_zip_last4,
             UPPER(cage_code) AS cage_code,
             UPPER(inherently_government_func) AS inherently_government_func,
             UPPER(organizational_type) AS organizational_type,
@@ -616,24 +618,24 @@ INNER JOIN
             UPPER(unique_award_key) AS unique_award_key,
             UPPER(additional_reporting) AS additional_reporting,
             solicitation_date::date as solicitation_date,
-            high_comp_officer1_amount::numeric(23,2),
+            high_comp_officer1_amount::numeric(23,2) AS high_comp_officer1_amount,
             UPPER(high_comp_officer1_full_na) AS high_comp_officer1_full_na,
-            high_comp_officer2_amount::numeric(23,2),
+            high_comp_officer2_amount::numeric(23,2) AS high_comp_officer2_amount,
             UPPER(high_comp_officer2_full_na) AS high_comp_officer2_full_na,
-            high_comp_officer3_amount::numeric(23,2),
+            high_comp_officer3_amount::numeric(23,2) AS high_comp_officer3_amount,
             UPPER(high_comp_officer3_full_na) AS high_comp_officer3_full_na,
-            high_comp_officer4_amount::numeric(23,2),
+            high_comp_officer4_amount::numeric(23,2) AS high_comp_officer4_amount,
             UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
-            high_comp_officer5_amount::numeric(23,2),
+            high_comp_officer5_amount::numeric(23,2) AS high_comp_officer5_amount,
             UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
         FROM detached_award_procurement
         WHERE {predicate}'
     ) AS broker (
-        created_at TIMESTAMP WITHOUT time ZONE,
-        updated_at TIMESTAMP WITHOUT time ZONE,
-        piid text,
+        created_at TIMESTAMP WITH time ZONE,
+        updated_at TIMESTAMP WITH time ZONE,
         detached_award_procurement_id int,
         detached_award_proc_unique text,
+        piid text,
         agency_id text,
         awarding_sub_tier_agency_c text,
         awarding_sub_tier_agency_n text,
@@ -934,8 +936,8 @@ INNER JOIN
 ) AS broker ON (
     (broker.detached_award_procurement_id = usaspending.detached_award_procurement_id)
     AND (
-        (broker.created_at IS DISTINCT FROM usaspending.created_at::TIMESTAMP WITHOUT TIME ZONE)
-        OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at::TIMESTAMP WITHOUT TIME ZONE)
+        (broker.created_at IS DISTINCT FROM usaspending.created_at)
+        OR (broker.updated_at IS DISTINCT FROM usaspending.updated_at)
         OR (broker.piid IS DISTINCT FROM usaspending.piid)
         OR (UPPER(broker.detached_award_proc_unique) IS DISTINCT FROM usaspending.detached_award_proc_unique)
         OR (broker.agency_id IS DISTINCT FROM usaspending.agency_id)
@@ -1222,6 +1224,7 @@ INNER JOIN
         OR (broker.organizational_type IS DISTINCT FROM usaspending.organizational_type)
         OR (broker.inherently_government_desc IS DISTINCT FROM usaspending.inherently_government_desc)
         OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
+        OR (broker.solicitation_date IS DISTINCT FROM usaspending.solicitation_date)
         OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount)
         OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
         OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount)

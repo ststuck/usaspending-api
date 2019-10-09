@@ -11,7 +11,7 @@ logger = logging.getLogger("console")
 
 
 CREATE_TEMP_TABLE = """
-CREATE UNLOGGED TABLE IF NOT EXISTS {table} (
+CREATE TABLE IF NOT EXISTS {table} (
     system text,
     transaction_id bigint,
     broker_surrogate_id bigint,
@@ -34,13 +34,6 @@ SELECT
     MIN({id_column}), MAX({id_column})
 FROM
     {table}
-"""
-
-GET_MIN_MAX_FPDS_SQL_STRING = """
-SELECT
-    MIN(detached_award_procurement_id), MAX(detached_award_procurement_id)
-FROM
-    detached_award_procurement
 """
 
 
