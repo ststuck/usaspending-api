@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS {table} (
 GET_MIN_MAX_SQL_STRING = """
 {cte}
 SELECT
-    MIN({id_column}), MAX({id_column})
+    MIN({id_column}),
+    MAX({id_column})
 FROM
     {table}
 """
@@ -182,7 +183,8 @@ class Command(BaseCommand):
 
                     query = "INSERT INTO {table} {sql}".format(table=self.temp_table, sql=sql)
 
-                    logger.info("<{}> Processing records with IDs ({:,} => {:,})".format(transaction_type, _min, _max))
+                    log_text = "<{}> Processing records with IDs ({:,} => {:,}) [{:,}]"
+                    logger.info(log_text.format(transaction_type, _min, _max, total))
                     with Timer() as chunk_timer:
                         db_cursor.execute(query)
                     transaction.commit()
@@ -201,14 +203,14 @@ class Command(BaseCommand):
 
 def create_indexes(target_table):
     indexes = [
-        "CREATE INDEX IF NOT EXISTS ix_{table}_action_date ON {table} USING BTREE(action_date, system) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_create ON {table} USING BTREE(broker_record_create) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_update ON {table} USING BTREE(broker_record_update) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_action_date ON {table} USING BTREE(action_date, system)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_create ON {table} USING BTREE(broker_record_create)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_broker_rec_update ON {table} USING BTREE(broker_record_update)",
         "CREATE INDEX IF NOT EXISTS ix_{table}_diff_jsonb ON {table} USING gin(fields_diff_json jsonb_path_ops)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_piid_fain_uri ON {table} USING BTREE(piid_fain_uri, system) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_rec_update ON {table} USING BTREE(usaspending_record_update) WITH (fillfactor=99)",
-        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_record_create ON {table} USING BTREE(usaspending_record_create) WITH (fillfactor=99)",
-        "CREATE UNIQUE INDEX IF NOT EXISTS ix_{table}_transaction_id ON {table} USING BTREE(transaction_id) WITH (fillfactor=99)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_piid_fain_uri ON {table} USING BTREE(piid_fain_uri, system)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_rec_update ON {table} USING BTREE(usaspending_record_update)",
+        "CREATE INDEX IF NOT EXISTS ix_{table}_usa_record_create ON {table} USING BTREE(usaspending_record_create)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_{table}_transaction_id ON {table} USING BTREE(transaction_id)",
     ]
 
     db_cursor = connections[DEFAULT_DB_ALIAS].cursor()
