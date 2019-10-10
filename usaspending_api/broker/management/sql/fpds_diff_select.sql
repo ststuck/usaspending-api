@@ -51,7 +51,7 @@ SELECT
             'period_of_performance_curr', CASE WHEN broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr THEN jsonb_build_object('broker', broker.period_of_performance_curr, 'usaspending', usaspending.period_of_performance_curr) ELSE null END,
             'period_of_perf_potential_e', CASE WHEN broker.period_of_perf_potential_e IS DISTINCT FROM usaspending.period_of_perf_potential_e THEN jsonb_build_object('broker', broker.period_of_perf_potential_e, 'usaspending', usaspending.period_of_perf_potential_e) ELSE null END,
             'ordering_period_end_date', CASE WHEN broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date THEN jsonb_build_object('broker', broker.ordering_period_end_date, 'usaspending', usaspending.ordering_period_end_date) ELSE null END,
-            'action_date', CASE WHEN broker.action_date IS DISTINCT FROM usaspending.action_date THEN jsonb_build_object('broker', broker.action_date, 'usaspending', usaspending.action_date) ELSE null END,
+            'action_date', CASE WHEN broker.action_date IS DISTINCT FROM usaspending.action_date::date THEN jsonb_build_object('broker', broker.action_date, 'usaspending', usaspending.action_date) ELSE null END,
             'action_type', CASE WHEN broker.action_type IS DISTINCT FROM usaspending.action_type THEN jsonb_build_object('broker', broker.action_type, 'usaspending', usaspending.action_type) ELSE null END,
             'action_type_description', CASE WHEN broker.action_type_description IS DISTINCT FROM usaspending.action_type_description THEN jsonb_build_object('broker', broker.action_type_description, 'usaspending', usaspending.action_type_description) ELSE null END,
             'federal_action_obligation', CASE WHEN broker.federal_action_obligation IS DISTINCT FROM usaspending.federal_action_obligation THEN jsonb_build_object('broker', broker.federal_action_obligation, 'usaspending', usaspending.federal_action_obligation) ELSE null END,
@@ -368,7 +368,7 @@ INNER JOIN
             UPPER(period_of_performance_curr) AS period_of_performance_curr,
             UPPER(period_of_perf_potential_e) AS period_of_perf_potential_e,
             UPPER(ordering_period_end_date) AS ordering_period_end_date,
-            UPPER(action_date) AS action_date,
+            action_date::date AS action_date,
             UPPER(action_type) AS action_type,
             UPPER(action_type_description) AS action_type_description,
             federal_action_obligation::numeric(23,2) AS federal_action_obligation,
@@ -672,7 +672,7 @@ INNER JOIN
         period_of_performance_curr text,
         period_of_perf_potential_e text,
         ordering_period_end_date text,
-        action_date text,
+        action_date date,
         action_type text,
         action_type_description text,
         federal_action_obligation numeric(23,2),
@@ -976,7 +976,7 @@ INNER JOIN
         OR (broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr)
         OR (broker.period_of_perf_potential_e IS DISTINCT FROM usaspending.period_of_perf_potential_e)
         OR (broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date)
-        OR (broker.action_date IS DISTINCT FROM usaspending.action_date)
+        OR (broker.action_date IS DISTINCT FROM usaspending.action_date::date)
         OR (broker.action_type IS DISTINCT FROM usaspending.action_type)
         OR (broker.action_type_description IS DISTINCT FROM usaspending.action_type_description)
         OR (broker.federal_action_obligation IS DISTINCT FROM usaspending.federal_action_obligation)
