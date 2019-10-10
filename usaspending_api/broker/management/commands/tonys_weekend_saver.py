@@ -5,14 +5,11 @@ from datetime import datetime, timezone, timedelta
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import connections, DEFAULT_DB_ALIAS, transaction
-from typing import List
 from tempfile import NamedTemporaryFile
+from typing import List
 
 from usaspending_api.common.helpers.date_helper import datetime_command_line_argument_type
-from usaspending_api.common.helpers.fiscal_year_helpers import (
-    convert_fiscal_quarter_to_dates,
-    fiscal_year_and_quarter_from_datetime,
-)
+from usaspending_api.common.helpers.fiscal_year_helpers import fiscal_year_and_quarter_from_datetime
 from usaspending_api.common.helpers.timing_helpers import Timer
 
 logger = logging.getLogger("console")
@@ -39,20 +36,17 @@ class Command(BaseCommand):
         self.system = options["system"]
         self.failed_batches = []
         self.table = options["diff_table"]
+        week_start = options["start_datetime"]
 
-        curr_fy, curr_fq = fiscal_year_and_quarter_from_datetime(options["start_datetime"])
+        week_end = week_start - timedelta(days=7)
+        curr_fy, curr_fq = fiscal_year_and_quarter_from_datetime(week_start)
+        iteration = 1
+        all_done = False
 
         logger.info("======= Starting Tony's Weekend Saver =======")
         logger.info("  [{}] Starting in FY{}Q{} using {}".format(self.system, curr_fy, curr_fq, self.table))
         logger.info("  Desired End Datetime = {}".format(options["closing_time"]))
-
-        iteration = 1
-        all_done = False
-
-        logger.info("===== Running FY{}Q{} =====".format(curr_fy, curr_fq))
-        quarter_begin, quarter_end = convert_fiscal_quarter_to_dates(curr_fy, curr_fq)
-        week_start = quarter_end
-        week_end = quarter_end - timedelta(days=7)
+        logger.info("=============================================")
 
         while not all_done:
             if len(self.failed_batches) > 2:
@@ -63,8 +57,8 @@ class Command(BaseCommand):
                 dt_str = next_run_estimated_end_datetime.isoformat()
                 if next_run_estimated_end_datetime >= options["closing_time"]:
                     logger.info("=> Estimated loop end datetime of: {}".format(dt_str))
-                    logger.info("=> Next dates to process: {} - {}".format(week_end, week_start))
-                    logger.info("=> You don't have to go home, but you can't... stay...... heeeeere")
+                    logger.info("===== Suspending job due to --closing-time flag")
+                    logger.info("=> Start next job on {}".format(week_start))
                     all_done = True
                     break
                 else:
@@ -91,11 +85,7 @@ class Command(BaseCommand):
 
             logger.info("=> Completed transactions BETWEEN {} AND {}".format(week_end, week_start))
             iteration += 1
-            week_start = week_end
-            if week_end - timedelta(days=7) < quarter_begin:
-                week_end = quarter_begin
-            else:
-                week_end -= timedelta(days=7)
+            week_start, week_end = week_end, week_end - timedelta(days=7)
 
         if self.failed_batches:
             logger.error("=> Script completed with the following failures: {}".format(", ".join(self.failed_batches)))
