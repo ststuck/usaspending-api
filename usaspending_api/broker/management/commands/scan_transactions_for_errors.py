@@ -93,7 +93,7 @@ class Command(BaseCommand):
             self.runner(step)
 
         if self.run_indexes:
-            self.create_indexes()
+            create_indexes()
 
     def verify_or_create_table(self):
         with connections[DEFAULT_DB_ALIAS].cursor() as db_cursor:
