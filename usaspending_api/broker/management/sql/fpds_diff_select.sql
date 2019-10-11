@@ -50,7 +50,7 @@ SELECT
             'period_of_performance_star', CASE WHEN broker.period_of_performance_star IS DISTINCT FROM usaspending.period_of_performance_star THEN jsonb_build_object('broker', broker.period_of_performance_star, 'usaspending', usaspending.period_of_performance_star) ELSE null END,
             'period_of_performance_curr', CASE WHEN broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr THEN jsonb_build_object('broker', broker.period_of_performance_curr, 'usaspending', usaspending.period_of_performance_curr) ELSE null END,
             'period_of_perf_potential_e', CASE WHEN broker.period_of_perf_potential_e IS DISTINCT FROM usaspending.period_of_perf_potential_e THEN jsonb_build_object('broker', broker.period_of_perf_potential_e, 'usaspending', usaspending.period_of_perf_potential_e) ELSE null END,
-            'ordering_period_end_date', CASE WHEN broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date THEN jsonb_build_object('broker', broker.ordering_period_end_date, 'usaspending', usaspending.ordering_period_end_date) ELSE null END,
+            'ordering_period_end_date', CASE WHEN broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date::date THEN jsonb_build_object('broker', broker.ordering_period_end_date, 'usaspending', usaspending.ordering_period_end_date) ELSE null END,
             'action_date', CASE WHEN broker.action_date IS DISTINCT FROM usaspending.action_date::date THEN jsonb_build_object('broker', broker.action_date, 'usaspending', usaspending.action_date) ELSE null END,
             'action_type', CASE WHEN broker.action_type IS DISTINCT FROM usaspending.action_type THEN jsonb_build_object('broker', broker.action_type, 'usaspending', usaspending.action_type) ELSE null END,
             'action_type_description', CASE WHEN broker.action_type_description IS DISTINCT FROM usaspending.action_type_description THEN jsonb_build_object('broker', broker.action_type_description, 'usaspending', usaspending.action_type_description) ELSE null END,
@@ -284,7 +284,7 @@ SELECT
             'vendor_legal_org_name', CASE WHEN broker.vendor_legal_org_name IS DISTINCT FROM usaspending.vendor_legal_org_name THEN jsonb_build_object('broker', broker.vendor_legal_org_name, 'usaspending', usaspending.vendor_legal_org_name) ELSE null END,
             'vendor_location_disabled_f', CASE WHEN broker.vendor_location_disabled_f IS DISTINCT FROM usaspending.vendor_location_disabled_f THEN jsonb_build_object('broker', broker.vendor_location_disabled_f, 'usaspending', usaspending.vendor_location_disabled_f) ELSE null END,
             'vendor_site_code', CASE WHEN broker.vendor_site_code IS DISTINCT FROM usaspending.vendor_site_code THEN jsonb_build_object('broker', broker.vendor_site_code, 'usaspending', usaspending.vendor_site_code) ELSE null END,
-            'initial_report_date', CASE WHEN broker.initial_report_date IS DISTINCT FROM usaspending.initial_report_date THEN jsonb_build_object('broker', broker.initial_report_date, 'usaspending', usaspending.initial_report_date) ELSE null END,
+            'initial_report_date', CASE WHEN broker.initial_report_date IS DISTINCT FROM usaspending.initial_report_date::date THEN jsonb_build_object('broker', broker.initial_report_date, 'usaspending', usaspending.initial_report_date) ELSE null END,
             'base_and_all_options_value', CASE WHEN broker.base_and_all_options_value IS DISTINCT FROM usaspending.base_and_all_options_value THEN jsonb_build_object('broker', broker.base_and_all_options_value, 'usaspending', usaspending.base_and_all_options_value) ELSE null END,
             'base_exercised_options_val', CASE WHEN broker.base_exercised_options_val IS DISTINCT FROM usaspending.base_exercised_options_val THEN jsonb_build_object('broker', broker.base_exercised_options_val, 'usaspending', usaspending.base_exercised_options_val) ELSE null END,
             'total_obligated_amount', CASE WHEN broker.total_obligated_amount IS DISTINCT FROM usaspending.total_obligated_amount THEN jsonb_build_object('broker', broker.total_obligated_amount, 'usaspending', usaspending.total_obligated_amount) ELSE null END
@@ -319,7 +319,7 @@ SELECT
             'high_comp_officer5_amount', CASE WHEN broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount THEN jsonb_build_object('broker', broker.high_comp_officer5_amount, 'usaspending', usaspending.officer_5_amount) ELSE null END,
             'high_comp_officer5_full_na', CASE WHEN broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name THEN jsonb_build_object('broker', broker.high_comp_officer5_full_na, 'usaspending', usaspending.officer_5_name) ELSE null END
         )
-    ) as fields_diff_json
+    ) as "fields_diff_json"
 FROM transaction_fpds AS usaspending
 INNER JOIN transaction_normalized ON usaspending.transaction_id = transaction_normalized.id
 INNER JOIN
@@ -367,7 +367,7 @@ INNER JOIN
             UPPER(period_of_performance_star) AS period_of_performance_star,
             UPPER(period_of_performance_curr) AS period_of_performance_curr,
             UPPER(period_of_perf_potential_e) AS period_of_perf_potential_e,
-            UPPER(ordering_period_end_date) AS ordering_period_end_date,
+            ordering_period_end_date::date AS ordering_period_end_date,
             action_date::date AS action_date,
             UPPER(action_type) AS action_type,
             UPPER(action_type_description) AS action_type_description,
@@ -596,7 +596,7 @@ INNER JOIN
             UPPER(vendor_legal_org_name) AS vendor_legal_org_name,
             UPPER(vendor_location_disabled_f) AS vendor_location_disabled_f,
             UPPER(vendor_site_code) AS vendor_site_code,
-            UPPER(initial_report_date) AS initial_report_date,
+            initial_report_date::date AS initial_report_date,
             UPPER(base_and_all_options_value) AS base_and_all_options_value,
             UPPER(base_exercised_options_val) AS base_exercised_options_val,
             UPPER(total_obligated_amount) AS total_obligated_amount,
@@ -671,7 +671,7 @@ INNER JOIN
         period_of_performance_star text,
         period_of_performance_curr text,
         period_of_perf_potential_e text,
-        ordering_period_end_date text,
+        ordering_period_end_date date,
         action_date date,
         action_type text,
         action_type_description text,
@@ -900,7 +900,7 @@ INNER JOIN
         vendor_legal_org_name text,
         vendor_location_disabled_f text,
         vendor_site_code text,
-        initial_report_date text,
+        initial_report_date date,
         base_and_all_options_value text,
         base_exercised_options_val text,
         total_obligated_amount text,
@@ -975,7 +975,7 @@ INNER JOIN
         OR (broker.period_of_performance_star IS DISTINCT FROM usaspending.period_of_performance_star)
         OR (broker.period_of_performance_curr IS DISTINCT FROM usaspending.period_of_performance_curr)
         OR (broker.period_of_perf_potential_e IS DISTINCT FROM usaspending.period_of_perf_potential_e)
-        OR (broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date)
+        OR (broker.ordering_period_end_date IS DISTINCT FROM usaspending.ordering_period_end_date::date)
         OR (broker.action_date IS DISTINCT FROM usaspending.action_date::date)
         OR (broker.action_type IS DISTINCT FROM usaspending.action_type)
         OR (broker.action_type_description IS DISTINCT FROM usaspending.action_type_description)
@@ -1204,7 +1204,7 @@ INNER JOIN
         OR (broker.vendor_legal_org_name IS DISTINCT FROM usaspending.vendor_legal_org_name)
         OR (broker.vendor_location_disabled_f IS DISTINCT FROM usaspending.vendor_location_disabled_f)
         OR (broker.vendor_site_code IS DISTINCT FROM usaspending.vendor_site_code)
-        OR (broker.initial_report_date IS DISTINCT FROM usaspending.initial_report_date)
+        OR (broker.initial_report_date IS DISTINCT FROM usaspending.initial_report_date::date)
         OR (broker.base_and_all_options_value IS DISTINCT FROM usaspending.base_and_all_options_value)
         OR (broker.base_exercised_options_val IS DISTINCT FROM usaspending.base_exercised_options_val)
         OR (broker.total_obligated_amount IS DISTINCT FROM usaspending.total_obligated_amount)
