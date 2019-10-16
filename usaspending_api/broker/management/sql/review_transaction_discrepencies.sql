@@ -11,18 +11,48 @@ SELECT (SELECT COUNT(*) FROM temp_dev3319_transactions_with_diff where system = 
 DO $$ BEGIN RAISE NOTICE 'Find all empty JSON columns (VERY BAD IF ANY EXIST!!!)'; END $$;
 SELECT * FROM temp_dev3319_transactions_with_diff where fields_diff_json::text = '{}';
 
-DO $$ BEGIN RAISE NOTICE 'Group and rank all of the problem columns by FY/Q'; END $$;
+DO $$ BEGIN RAISE NOTICE 'Group by source and FY/Q, providing counts'; END $$;
 SELECT
     CONCAT('FY',
-    EXTRACT(YEAR from action_date + INTERVAL '3 months'),
-    'Q',
-    EXTRACT(QUARTER from action_date + INTERVAL '3 months')) AS "fiscal_quarter",
-    jsonb_object_keys(fields_diff_json) as "trouble_columns",
+        EXTRACT(YEAR from action_date + INTERVAL '3 months'),
+        'Q',
+        EXTRACT(QUARTER from action_date + INTERVAL '3 months')
+    ) AS "fiscal_quarter",
+    "system" as source,
     count(*) as "count"
 from temp_dev3319_transactions_with_diff
-where system = 'fabs' and action_date >= '2018-10-01' -- SET TO FY2019, can be altered
-GROUP BY "fiscal_quarter", "trouble_columns"
+where action_date >= '2007-10-01'
+GROUP BY "fiscal_quarter", "system"
+order by "fiscal_quarter", "system";
+
+DO $$ BEGIN RAISE NOTICE 'Group and rank all of the problem columns by source and FY/Q'; END $$;
+SELECT
+    CONCAT('FY',
+        EXTRACT(YEAR from action_date + INTERVAL '3 months'),
+        'Q',
+        EXTRACT(QUARTER from action_date + INTERVAL '3 months')
+    ) AS "fiscal_quarter",
+    jsonb_object_keys(fields_diff_json) as "trouble_columns",
+    system as source,
+    count(*) as "count"
+from temp_dev3319_transactions_with_diff
+where action_date >= '2007-10-01'
+GROUP BY "fiscal_quarter", "trouble_columns", "source"
 order by "fiscal_quarter", "count" DESC;
+
+DO $$ BEGIN RAISE NOTICE 'Counts of all instances of column discrepencies for FABS'; END $$;
+SELECT jsonb_object_keys(fields_diff_json), count(*)
+FROM temp_dev3319_transactions_with_diff
+WHERE "system" = 'fabs'
+GROUP BY jsonb_object_keys(fields_diff_json)
+ORDER BY count(*) DESC;
+
+DO $$ BEGIN RAISE NOTICE 'Counts of all instances of column discrepencies for FPDS'; END $$;
+SELECT jsonb_object_keys(fields_diff_json), count(*)
+FROM temp_dev3319_transactions_with_diff
+WHERE "system" = 'fpds'
+GROUP BY jsonb_object_keys(fields_diff_json)
+ORDER BY count(*) DESC;
 
 
 -- -- Examine all records in FY2019Q4 with incorrect `legal_entity_address_line1`
