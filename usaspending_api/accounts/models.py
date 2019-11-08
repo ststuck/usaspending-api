@@ -77,12 +77,14 @@ class TreasuryAppropriationAccount(DataSourceTrackedModel):
     drv_appropriation_account_expired_status = models.TextField(blank=True, null=True)
     create_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     update_date = models.DateTimeField(auto_now=True, null=True)
+    internal_start_date = models.DateField(blank=True, null=True)
+    internal_end_date = models.DateField(blank=True, null=True)
 
     def update_agency_linkages(self):
         self.awarding_toptier_agency = ToptierAgency.objects.filter(
-            cgac_code=self.allocation_transfer_agency_id
+            toptier_code=self.allocation_transfer_agency_id
         ).first()
-        self.funding_toptier_agency = ToptierAgency.objects.filter(cgac_code=self.agency_id).first()
+        self.funding_toptier_agency = ToptierAgency.objects.filter(toptier_code=self.agency_id).first()
 
     @staticmethod
     def generate_tas_rendering_label(ata, aid, typecode, bpoa, epoa, mac, sub):
