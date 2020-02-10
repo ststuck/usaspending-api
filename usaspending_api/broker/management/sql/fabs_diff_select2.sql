@@ -97,16 +97,17 @@ SELECT
             'ultimate_parent_legal_enti', CASE WHEN broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti THEN jsonb_build_object('broker', broker.ultimate_parent_legal_enti, 'usaspending', usaspending.ultimate_parent_legal_enti) ELSE null END,
             'ultimate_parent_unique_ide', CASE WHEN broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide THEN jsonb_build_object('broker', broker.ultimate_parent_unique_ide, 'usaspending', usaspending.ultimate_parent_unique_ide) ELSE null END,
             'unique_award_key', CASE WHEN broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key THEN jsonb_build_object('broker', broker.unique_award_key, 'usaspending', usaspending.unique_award_key) ELSE null END,
-            'high_comp_officer1_amount', CASE WHEN broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount THEN jsonb_build_object('broker', broker.high_comp_officer1_amount, 'usaspending', usaspending.officer_1_amount) ELSE null END,
-            'high_comp_officer1_full_na', CASE WHEN broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name THEN jsonb_build_object('broker', broker.high_comp_officer1_full_na, 'usaspending', usaspending.officer_1_name) ELSE null END,
-            'high_comp_officer2_amount', CASE WHEN broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount THEN jsonb_build_object('broker', broker.high_comp_officer2_amount, 'usaspending', usaspending.officer_2_amount) ELSE null END,
-            'high_comp_officer2_full_na', CASE WHEN broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name THEN jsonb_build_object('broker', broker.high_comp_officer2_full_na, 'usaspending', usaspending.officer_2_name) ELSE null END,
-            'high_comp_officer3_amount', CASE WHEN broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount THEN jsonb_build_object('broker', broker.high_comp_officer3_amount, 'usaspending', usaspending.officer_3_amount) ELSE null END,
-            'high_comp_officer3_full_na', CASE WHEN broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name THEN jsonb_build_object('broker', broker.high_comp_officer3_full_na, 'usaspending', usaspending.officer_3_name) ELSE null END,
-            'high_comp_officer4_amount', CASE WHEN broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount THEN jsonb_build_object('broker', broker.high_comp_officer4_amount, 'usaspending', usaspending.officer_4_amount) ELSE null END,
-            'high_comp_officer4_full_na', CASE WHEN broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name THEN jsonb_build_object('broker', broker.high_comp_officer4_full_na, 'usaspending', usaspending.officer_4_name) ELSE null END,
-            'high_comp_officer5_amount', CASE WHEN broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount THEN jsonb_build_object('broker', broker.high_comp_officer5_amount, 'usaspending', usaspending.officer_5_amount) ELSE null END,
-            'high_comp_officer5_full_na', CASE WHEN broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name THEN jsonb_build_object('broker', broker.high_comp_officer5_full_na, 'usaspending', usaspending.officer_5_name) ELSE null END
+            'high_comp_officer1_amount', CASE WHEN broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.high_comp_officer1_amount THEN jsonb_build_object('broker', broker.high_comp_officer1_amount, 'usaspending', usaspending.high_comp_officer1_amount) ELSE null END,
+            'high_comp_officer1_full_na', CASE WHEN broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.high_comp_officer1_full_na THEN jsonb_build_object('broker', broker.high_comp_officer1_full_na, 'usaspending', usaspending.high_comp_officer1_full_na) ELSE null END,
+            'high_comp_officer2_amount', CASE WHEN broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.high_comp_officer2_amount THEN jsonb_build_object('broker', broker.high_comp_officer2_amount, 'usaspending', usaspending.high_comp_officer2_amount) ELSE null END,
+            'high_comp_officer2_full_na', CASE WHEN broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.high_comp_officer2_full_na THEN jsonb_build_object('broker', broker.high_comp_officer2_full_na, 'usaspending', usaspending.high_comp_officer2_full_na) ELSE null END,
+            'high_comp_officer3_amount', CASE WHEN broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.high_comp_officer3_amount THEN jsonb_build_object('broker', broker.high_comp_officer3_amount, 'usaspending', usaspending.high_comp_officer3_amount) ELSE null END,
+            'high_comp_officer3_full_na', CASE WHEN broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.high_comp_officer3_full_na THEN jsonb_build_object('broker', broker.high_comp_officer3_full_na, 'usaspending', usaspending.high_comp_officer3_full_na) ELSE null END,
+            'high_comp_officer4_amount', CASE WHEN broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.high_comp_officer4_amount THEN jsonb_build_object('broker', broker.high_comp_officer4_amount, 'usaspending', usaspending.high_comp_officer4_amount) ELSE null END,
+            'high_comp_officer4_full_na', CASE WHEN broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.high_comp_officer4_full_na THEN jsonb_build_object('broker', broker.high_comp_officer4_full_na, 'usaspending', usaspending.high_comp_officer4_full_na) ELSE null END,
+            'high_comp_officer5_amount', CASE WHEN broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.high_comp_officer5_amount THEN jsonb_build_object('broker', broker.high_comp_officer5_amount, 'usaspending', usaspending.high_comp_officer5_amount) ELSE null END,
+            'high_comp_officer5_full_na', CASE WHEN broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.high_comp_officer5_full_na THEN jsonb_build_object('broker', broker.high_comp_officer5_full_na, 'usaspending', usaspending.high_comp_officer5_full_na) ELSE null END,
+            'place_of_performance_scope', CASE WHEN broker.place_of_performance_scope IS DISTINCT FROM usaspending.place_of_performance_scope THEN jsonb_build_object('broker', broker.place_of_performance_scope, 'usaspending', usaspending.place_of_performance_scope) ELSE null END
         )
     ) as fields_diff_json
 FROM transaction_fabs AS usaspending
@@ -209,7 +210,8 @@ INNER JOIN
             high_comp_officer4_amount::numeric(23,2),
             UPPER(high_comp_officer4_full_na) AS high_comp_officer4_full_na,
             high_comp_officer5_amount::numeric(23,2),
-            UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na
+            UPPER(high_comp_officer5_full_na) AS high_comp_officer5_full_na,
+            place_of_performance_scope
         FROM published_award_financial_assistance
         WHERE {predicate}'
     ) AS broker(
@@ -306,7 +308,8 @@ INNER JOIN
         high_comp_officer4_amount numeric(23,2),
         high_comp_officer4_full_na text,
         high_comp_officer5_amount numeric(23,2),
-        high_comp_officer5_full_na text
+        high_comp_officer5_full_na text,
+        place_of_performance_scope text
     )
 ) AS broker ON (
     (broker.published_award_financial_assistance_id = usaspending.published_award_financial_assistance_id)
@@ -394,15 +397,16 @@ INNER JOIN
         OR (broker.ultimate_parent_legal_enti IS DISTINCT FROM usaspending.ultimate_parent_legal_enti)
         OR (broker.ultimate_parent_unique_ide IS DISTINCT FROM usaspending.ultimate_parent_unique_ide)
         OR (broker.unique_award_key IS DISTINCT FROM usaspending.unique_award_key)
-        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.officer_1_amount)
-        OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.officer_1_name)
-        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.officer_2_amount)
-        OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.officer_2_name)
-        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.officer_3_amount)
-        OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.officer_3_name)
-        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.officer_4_amount)
-        OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.officer_4_name)
-        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.officer_5_amount)
-        OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.officer_5_name)
+        OR (broker.high_comp_officer1_amount IS DISTINCT FROM usaspending.high_comp_officer1_amount)
+        OR (broker.high_comp_officer1_full_na IS DISTINCT FROM usaspending.high_comp_officer1_full_na)
+        OR (broker.high_comp_officer2_amount IS DISTINCT FROM usaspending.high_comp_officer2_amount)
+        OR (broker.high_comp_officer2_full_na IS DISTINCT FROM usaspending.high_comp_officer2_full_na)
+        OR (broker.high_comp_officer3_amount IS DISTINCT FROM usaspending.high_comp_officer3_amount)
+        OR (broker.high_comp_officer3_full_na IS DISTINCT FROM usaspending.high_comp_officer3_full_na)
+        OR (broker.high_comp_officer4_amount IS DISTINCT FROM usaspending.high_comp_officer4_amount)
+        OR (broker.high_comp_officer4_full_na IS DISTINCT FROM usaspending.high_comp_officer4_full_na)
+        OR (broker.high_comp_officer5_amount IS DISTINCT FROM usaspending.high_comp_officer5_amount)
+        OR (broker.high_comp_officer5_full_na IS DISTINCT FROM usaspending.high_comp_officer5_full_na)
+        OR (broker.place_of_performance_scope IS DISTINCT FROM usaspending.place_of_performance_scope)
     )
 )
