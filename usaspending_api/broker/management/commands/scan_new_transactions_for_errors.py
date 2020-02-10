@@ -13,17 +13,13 @@ logger = logging.getLogger("console")
 CREATE_TEMP_TABLE = """
 CREATE TABLE IF NOT EXISTS {table} (
     system text,
-    transaction_id bigint,
     broker_surrogate_id bigint,
     broker_derived_unique_key text,
     piid_fain_uri text,
     unique_award_key text,
     action_date date,
     record_last_modified date,
-    broker_record_create timestamp with time zone,
-    broker_record_update timestamp with time zone,
-    usaspending_record_create timestamp with time zone,
-    usaspending_record_update timestamp with time zone,
+    record_created timestamp without time zone,
     fields_diff_json jsonb
 )
 """
@@ -56,8 +52,8 @@ class Command(BaseCommand):
         if options["one_type"]:
             self.transaction_types = [options["one_type"]]
 
-        self.fabs = {"sql": "", "diff_sql_file": "fabs_diff_select.sql"}
-        self.fpds = {"sql": "", "diff_sql_file": "fpds_diff_select.sql"}
+        self.fabs = {"sql": "", "diff_sql_file": "fabs_diff_select2.sql"}
+        self.fpds = {"sql": "", "diff_sql_file": "fpds_diff_select2.sql"}
 
         self.main()
 
