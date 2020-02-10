@@ -7,7 +7,7 @@ from pathlib import Path
 from usaspending_api.common.helpers.date_helper import cast_datetime_to_naive, datetime_command_line_argument_type
 from usaspending_api.common.helpers.timing_helpers import Timer
 
-logger = logging.getLogger("console")
+logger = logging.getLogger("script")
 
 
 CREATE_TEMP_TABLE = """
