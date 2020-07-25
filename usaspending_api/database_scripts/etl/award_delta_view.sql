@@ -199,6 +199,11 @@ LEFT JOIN ref_population_county RL_STATE_POPULATION ON (RL_STATE_POPULATION.stat
 LEFT JOIN ref_population_county RL_COUNTY_POPULATION ON (RL_COUNTY_POPULATION.state_code = RL_STATE_LOOKUP.fips AND RL_COUNTY_POPULATION.county_number = vw_award_search.recipient_location_county_code)
 LEFT JOIN ref_population_cong_district RL_DISTRICT_POPULATION ON (RL_DISTRICT_POPULATION.state_code = RL_STATE_LOOKUP.fips AND RL_DISTRICT_POPULATION.congressional_district = vw_award_search.recipient_location_congressional_code)
 LEFT JOIN (
+    -- Get awards with COVID-related data
+    -- CONDITIONS:
+    -- 1. Only care about data that references an award, since this is used to update those referenced awards
+    -- 2. Only care about those awards if they are in a closed submission period, from FY2020 P07 onward
+    -- 3. Only care about outlays for those awards if the period with outlay data is the last closed period in its FY
     SELECT
         faba.award_id,
         ARRAY_AGG(DISTINCT disaster_emergency_fund_code) AS disaster_emergency_fund_codes,
@@ -212,6 +217,13 @@ LEFT JOIN (
     INNER JOIN submission_attributes sa
         ON faba.submission_id = sa.submission_id
         AND sa.reporting_period_start >= '2020-04-01'
+    -- Any COVID data shall only come from submissions for FY2020 P07 onward, and only submission windows that have closed
+    INNER JOIN dabs_submission_window_schedule dsws
+        ON  dsws.period_start_date >= '2020-04-01' AND dsws.submission_reveal_date < now()
+        AND dsws.submission_fiscal_year = sa.reporting_fiscal_year
+        AND dsws.submission_fiscal_month = sa.reporting_fiscal_period
+        AND dsws.is_quarter = sa.quarter_format_flag
+    -- Isolate latest closed periods in FYs since FY2020 P07 onward, from which outlay data will be retrieved
     LEFT JOIN (
         SELECT   submission_fiscal_year, is_quarter, max(submission_fiscal_month) AS submission_fiscal_month
         FROM     dabs_submission_window_schedule
@@ -225,6 +237,7 @@ LEFT JOIN (
 GROUP BY
     faba.award_id
 HAVING
+    -- TODO: May need to remove these, if we still want to know about awards that are tagged with COVID DEFCs, even if they have non non-zero obligation or outlay
     COALESCE(sum(CASE WHEN latest_closed_period_per_fy.is_quarter IS NOT NULL THEN faba.gross_outlay_amount_by_award_cpe END), 0) != 0
     OR COALESCE(sum(faba.transaction_obligated_amount), 0) != 0
 ) DEFC ON (DEFC.award_id = vw_award_search.award_id)
