@@ -215,22 +215,22 @@ LEFT JOIN (
         ON defc.code = faba.disaster_emergency_fund_code
         AND defc.group_name = 'covid_19'
     INNER JOIN submission_attributes sa
-        ON faba.submission_id = sa.submission_id
-        AND sa.reporting_period_start >= '2020-04-01'
-    LEFT JOIN (
-        SELECT   submission_fiscal_year, is_quarter, max(submission_fiscal_month) AS submission_fiscal_month
-        FROM     dabs_submission_window_schedule
-        WHERE    submission_reveal_date < now() AND period_start_date >= '2020-04-01'
-        GROUP BY submission_fiscal_year, is_quarter
-    ) AS latest_closed_period_per_fy
-        ON latest_closed_period_per_fy.submission_fiscal_year = sa.reporting_fiscal_year
+        ON  faba.submission_id = sa.submission_id
+        -- "closed_periods" for this temp COVID-preview are monthly periods: [FY2020 P07, FY2020 P08, FY2020 09]
+        -- (FY2020 P09 quarterly doesn't close until Aug 16th. It will get picked up in regular deltas post-deploy)
+        AND sa.reporting_fiscal_year = 2020
+        AND sa.reporting_fiscal_period BETWEEN 7 AND 9
+        AND sa.quarter_format_flag = FALSE
+    -- "latest_closed_period_per_fy" for this temp COVID-preview is ONLY FY2020 P09 (monthly).
+    -- (FY2020 P09 quarterly doesn't close until Aug 16th. It will get picked up in regular deltas post-deploy)
+    -- NOTE: if they only submited P07 or P08 and NOT P09, this _will_ ignore outlay balances in those, and report theirs as zero
+    LEFT JOIN dabs_submission_window_schedule AS latest_closed_period_per_fy
+        ON  latest_closed_period_per_fy.submission_fiscal_year = 2020
+        AND latest_closed_period_per_fy.submission_fiscal_month = 9
+        AND latest_closed_period_per_fy.is_quarter = FALSE
+        AND latest_closed_period_per_fy.submission_fiscal_year = sa.reporting_fiscal_year
         AND latest_closed_period_per_fy.submission_fiscal_month = sa.reporting_fiscal_period
         AND latest_closed_period_per_fy.is_quarter = sa.quarter_format_flag
-    INNER JOIN dabs_submission_window_schedule AS closed_periods
-        ON   closed_periods.period_start_date >= '2020-04-01' AND closed_periods.submission_reveal_date < now()
-        AND  sa.reporting_fiscal_year = closed_periods.submission_fiscal_year
-        AND  sa.reporting_fiscal_period = closed_periods.submission_fiscal_month
-        AND  sa.quarter_format_flag = closed_periods.is_quarter
     WHERE faba.award_id IS NOT NULL
     GROUP BY
         faba.award_id
