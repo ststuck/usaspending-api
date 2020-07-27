@@ -179,9 +179,10 @@ def process_cli_parameters(options: dict, es_client) -> dict:
             printf({"msg": "Fatal error: write alias '{}' is missing".format(write_alias)})
             raise SystemExit(1)
     else:
-        if es_client.indices.exists(config["index_name"]):
-            printf({"msg": "Fatal error: data load into existing index. Change index name or run an incremental load"})
-            raise SystemExit(1)
+        # if es_client.indices.exists(config["index_name"]):
+        #     printf({"msg": "Fatal error: data load into existing index. Change index name or run an incremental load"})
+        #     raise SystemExit(1)
+        printf({"msg": "I HOPE YOU KNOW WHAT YOU ARE DOING!!!"})
 
     if not config["directory"].is_dir():
         printf({"msg": "Fatal error: provided directory does not exist"})
