@@ -113,7 +113,7 @@ AGENCY_DOWNLOAD_URL = "https://files{}.usaspending.gov/reference_data/agency_cod
 ES_HOSTNAME = ""
 if not ES_HOSTNAME:
     ES_HOSTNAME = os.environ.get("ES_HOSTNAME")
-ES_TRANSACTIONS_ETL_VIEW_NAME = "transaction_delta_view"
+ES_TRANSACTIONS_ETL_VIEW_NAME = "transaction_delta_view2"
 ES_TRANSACTIONS_MAX_RESULT_WINDOW = 50000
 ES_TRANSACTIONS_NAME_SUFFIX = "transactions"
 ES_TRANSACTIONS_QUERY_ALIAS_PREFIX = "transaction-query"
