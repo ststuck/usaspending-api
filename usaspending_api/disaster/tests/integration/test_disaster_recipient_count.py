@@ -6,7 +6,7 @@ url = "/api/v2/disaster/recipient/count/"
 
 
 @pytest.mark.django_db
-def test_award_count_basic_fabs(client, monkeypatch, basic_fabs_award, helpers):
+def test_award_count_basic_fabs(client, monkeypatch, basic_fabs_award, helpers, transactional_db):
     helpers.patch_datetime_now(monkeypatch, 2022, 12, 31)
     resp = helpers.post_for_count_endpoint(client, url, ["M"], ["07"])
     assert resp.data["count"] == 1

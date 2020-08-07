@@ -1,6 +1,7 @@
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
+from django_cte import CTEManager
 
 from usaspending_api.awards.models import Award
 
@@ -14,6 +15,8 @@ class BaseAwardSearchModel(models.Model):
         - Django filter queryset logic for matviews
         - API views obtaining data from the matviews
     """
+
+    objects = CTEManager()
 
     keyword_ts_vector = SearchVectorField()
     award_ts_vector = SearchVectorField()
