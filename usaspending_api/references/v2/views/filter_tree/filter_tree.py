@@ -57,7 +57,7 @@ class FilterTree(metaclass=ABCMeta):
             for elem in raw_children
         ]
         if child_layers:
-            children = temp_children
+            children = [child for child in temp_children if self.matches_filter(child, filter_string)] if filter_string else temp_children
         else:
             children = None
 
