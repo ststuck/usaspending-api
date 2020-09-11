@@ -47,10 +47,6 @@ class TASFilterTree(FilterTree):
             Q(federal_account__federal_account_code=fed_account),
             Q(federal_account__parent_toptier_agency__toptier_code=agency),
         ]
-        if filter_string:
-            filters.append(
-                Q(Q(tas_rendering_label__icontains=filter_string) | Q(account_title__icontains=filter_string))
-            )
         return TreasuryAppropriationAccount.objects.annotate(
             has_faba=Exists(faba_with_file_D_data().filter(treasury_account=OuterRef("pk")))
         ).filter(*filters)
