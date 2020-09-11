@@ -17,7 +17,7 @@ PSC_GROUPS = {
 
 
 class PSCFilterTree(FilterTree):
-    def raw_search(self, tiered_keys, filter_string=None):
+    def raw_search(self, tiered_keys):
         if not self._path_is_valid(tiered_keys):
             return []
 
