@@ -163,14 +163,6 @@ class Command(BaseCommand):
         )
 
         parser.add_argument(
-            "--id-file",
-            metavar="FILEPATH",
-            type=str,
-            help="A file containing only broker transaction IDs (published_award_financial_assistance_id) "
-            "to reload, one ID per line. Nonexistent IDs will be ignored.",
-        )
-
-        parser.add_argument(
             "--start-datetime",
             type=datetime_command_line_argument_type(naive=True),  # Broker date/times are naive.
             help="Processes transactions updated on or after the UTC date/time "
@@ -203,7 +195,6 @@ class Command(BaseCommand):
             afa_ids = set(options["afa_ids"])
             if options["afa_id_file"]:
                 afa_ids = tuple(afa_ids | read_afa_ids_from_file(options["afa_id_file"]))
-
             start_datetime = options["start_datetime"]
             end_datetime = options["end_datetime"]
 

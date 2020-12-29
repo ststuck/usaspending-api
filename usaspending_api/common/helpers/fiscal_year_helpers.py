@@ -2,7 +2,7 @@ import logging
 
 from datetime import datetime, MAXYEAR, MINYEAR, timedelta
 from dateutil.relativedelta import relativedelta
-from fiscalyear import FiscalDate, FiscalDateTime, FiscalQuarter
+from fiscalyear import FiscalDate, FiscalDateTime
 from typing import Optional, Tuple
 from typing import List
 
@@ -38,19 +38,6 @@ def create_fiscal_year_list(start_year: int = 2000, end_year: Optional[int] = No
         raise Exception("Invalid start_year and end_year values")
 
     return [year for year in range(start_year, end_year)]
-
-
-def convert_fiscal_quarter_to_dates(fiscal_year: int, fiscal_quarter: int) -> Tuple[datetime, datetime]:
-    """Return the start and end dates of a given FY and quarter"""
-    fiscal_dates = FiscalQuarter(fiscal_year, fiscal_quarter)
-    return fiscal_dates.start, fiscal_dates.end
-
-
-def previous_fiscal_quarter(fiscal_year: int, fiscal_quarter: int) -> Tuple[int, int]:
-    """ Simple helper function to return the previous quarter"""
-    if fiscal_quarter == 1:
-        return fiscal_year - 1, 4
-    return fiscal_year, fiscal_quarter - 1
 
 
 def fiscal_year_and_quarter_from_datetime(py_dt: datetime) -> Tuple[int, int]:
