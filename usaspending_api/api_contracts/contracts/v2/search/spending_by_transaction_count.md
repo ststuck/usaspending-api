@@ -8,9 +8,20 @@ HOST: https://api.usaspending.gov
 Returns the counts of transaction records which match the keyword grouped by award categories.
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `filters` (required, FilterObject)
-            Need to provide `keywords`
+        + `filters` (required, AdvancedFilterObject)
+        The `keywords` filter is mandatory for this endpoint
+    + Body
+
+
+            {"filters":{"keywords":["test"]}}
 
 + Response 200 (application/json)
     + Attributes (object)
@@ -23,6 +34,7 @@ Returns the counts of transaction records which match the keyword grouped by awa
             - `grants`: 0 (required, number)
 
     + Body
+
 
             {
                 "results": {
@@ -37,5 +49,5 @@ Returns the counts of transaction records which match the keyword grouped by awa
 
 # Data Structures
 
-## FilterObject (object)
-+ `keywords`: `lockheed` (required, array[string], fixed-type)
+## AdvancedFilterObject (object)
++ `keywords`: [[`lockheed`]] (required, array[string], fixed-type)

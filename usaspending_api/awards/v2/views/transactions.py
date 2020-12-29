@@ -8,9 +8,12 @@ from rest_framework.views import APIView
 from usaspending_api.awards.models import TransactionNormalized
 from usaspending_api.common.cache_decorator import cache_response
 from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata
-from usaspending_api.common.validator.award import get_internal_or_generated_award_id_model
-from usaspending_api.common.validator.pagination import customize_pagination_with_sort_columns
-from usaspending_api.common.validator.tinyshield import TinyShield
+from usaspending_api.common.validator import (
+    customize_pagination_with_sort_columns,
+    get_internal_or_generated_award_id_model,
+    TinyShield,
+    update_model_in_list,
+)
 
 
 class TransactionViewSet(APIView):
@@ -34,9 +37,8 @@ class TransactionViewSet(APIView):
         "federal_action_obligation": "federal_action_obligation",
         "face_value_loan_guarantee": "face_value_loan_guarantee",
         "original_loan_subsidy_cost": "original_loan_subsidy_cost",
-        # necessary columns which are only present for Django Mock Queries
-        "award_id": "award_id",
         "is_fpds": "is_fpds",
+        "cfda_number": "assistance_data__cfda_number",
     }
 
     def __init__(self):
@@ -49,7 +51,8 @@ class TransactionViewSet(APIView):
                 {"key": "idv", "name": "idv", "type": "boolean", "default": True, "optional": True},
             ]
         )
-        self._tiny_shield_models = models
+
+        self._tiny_shield_models = update_model_in_list(model_list=models, model_name="limit", new_dict={"max": 5000})
         super(TransactionViewSet, self).__init__()
 
     def _parse_and_validate_request(self, request_dict: dict) -> dict:
@@ -62,12 +65,17 @@ class TransactionViewSet(APIView):
         award_id = request_data["award_id"]
         award_id_column = "award_id" if type(award_id) is int else "award__generated_unique_award_id"
         filter = {award_id_column: award_id}
-
+        if request_data["sort"] == "cfda_number":
+            request_data["sort"] = "assistance_data__cfda_number"
         lower_limit = (request_data["page"] - 1) * request_data["limit"]
         upper_limit = request_data["page"] * request_data["limit"]
 
-        queryset = TransactionNormalized.objects.all().values(*list(self.transaction_lookup.values())).filter(**filter)
-
+        queryset = (
+            TransactionNormalized.objects.all()
+            .filter(**filter)
+            .select_related("assistance_data")
+            .values(*list(self.transaction_lookup.values()))
+        )
         if request_data["order"] == "desc":
             queryset = queryset.order_by(F(request_data["sort"]).desc(nulls_last=True))
         else:
@@ -80,10 +88,11 @@ class TransactionViewSet(APIView):
         results = []
         for row in rows:
             unique_prefix = "ASST_TX"
-            result = {k: row[v] for k, v in self.transaction_lookup.items() if k != "award_id"}
+            result = {k: row.get(v) for k, v in self.transaction_lookup.items() if k != "award_id"}
             if result["is_fpds"]:
                 unique_prefix = "CONT_TX"
-            result["id"] = "{}_{}".format(unique_prefix, result["id"])
+                del result["cfda_number"]
+            result["id"] = f"{unique_prefix}_{result['id']}"
             del result["is_fpds"]
             results.append(result)
         return results

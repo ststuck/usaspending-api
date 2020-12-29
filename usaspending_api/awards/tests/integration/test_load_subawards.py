@@ -8,6 +8,7 @@ from pathlib import Path
 from psycopg2.extensions import AsIs
 from usaspending_api.awards.management.commands.load_subawards import Command
 from usaspending_api.awards.models import BrokerSubaward, Subaward
+from usaspending_api.common.etl.mixins import ETLMixin
 from usaspending_api.common.etl.operations import stage_table
 from usaspending_api.common.helpers.sql_helpers import get_connection
 
@@ -23,9 +24,7 @@ def _stage_table_mock(source, destination, staging):
     connection = get_connection(read_only=False)
     with connection.cursor() as cursor:
         cursor.execute("drop table if exists temp_load_subawards_broker_subaward")
-        cursor.execute(
-            "create table temp_load_subawards_broker_subaward as " "select * from broker_subaward where 0 = 1"
-        )
+        cursor.execute("create table temp_load_subawards_broker_subaward as select * from broker_subaward where 0 = 1")
         for record in SAMPLE_DATA:
             columns = record.keys()
             values = tuple(record[column] for column in columns)
@@ -44,11 +43,11 @@ def cursor_fixture(db, monkeypatch):
     def _execute(self, function, timer_message, *args, **kwargs):
         if function is not stage_table:
             # Allow non-dblink calls to happen "normally".
-            return original_execute(function, timer_message, *args, **kwargs)
+            return original_execute(self, function, timer_message, *args, **kwargs)
 
-        return original_execute(_stage_table_mock, timer_message, *args, **kwargs)
+        return original_execute(self, _stage_table_mock, timer_message, *args, **kwargs)
 
-    monkeypatch.setattr("usaspending_api.awards.management.commands.load_subawards.Command._execute_function", _execute)
+    monkeypatch.setattr(ETLMixin, "_execute_function", _execute)
 
 
 def _check_data():

@@ -1,43 +1,53 @@
-DROP TABLE IF EXISTS public.earliest_transaction_temp CASCADE;
-
 --------------------------------------------------------------------------------
--- Step 1, create the temporary matview of awards and transactions with their earliest action_date
+-- Step 1, Restock summary_award_recipient
 --------------------------------------------------------------------------------
-DO $$ BEGIN RAISE NOTICE 'Step 1: Create temp earliest action date'; END $$;
+DO $$ BEGIN RAISE NOTICE 'Step 1: Restock summary_award_recipient'; END $$;
+SELECT now();
 
-CREATE TABLE public.earliest_transaction_temp AS (
-  WITH lowest_action_date AS (
-      SELECT
-        award_id,
-        MIN(action_date) AS min_date
-      FROM transaction_normalized
-      WHERE action_date >= '2007-10-01'
-      GROUP BY award_id
-  )
-  SELECT
-    txn.award_id,
-    txn.id,
-    txn.action_date
-  FROM lowest_action_date AS lad
-  JOIN transaction_normalized AS txn ON lad.award_id=txn.award_id AND lad.min_date = txn.action_date
+DELETE FROM public.summary_award_recipient sar
+WHERE NOT EXISTS (SELECT FROM awards a WHERE sar.award_id = a.id);
+
+UPDATE public.summary_award_recipient AS sar SET
+  action_date = a.date_signed,
+  recipient_hash = MD5(UPPER(
+    CASE
+      WHEN COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu) IS NOT NULL THEN CONCAT('duns-', COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu))
+      ELSE CONCAT('name-', COALESCE(fpds.awardee_or_recipient_legal, fabs.awardee_or_recipient_legal)) END
+    )
+  )::uuid,
+  parent_recipient_unique_id = COALESCE(fpds.ultimate_parent_unique_ide, fabs.ultimate_parent_unique_ide)
+FROM public.awards a
+LEFT OUTER JOIN public.transaction_fpds fpds ON (a.earliest_transaction_id = fpds.transaction_id)
+LEFT OUTER JOIN public.transaction_fabs fabs ON (a.earliest_transaction_id = fabs.transaction_id)
+WHERE
+  sar.award_id = a.id
+  AND (
+    sar.action_date IS DISTINCT FROM a.date_signed
+    OR sar.recipient_hash IS DISTINCT FROM MD5(
+      UPPER(
+        CASE
+          WHEN COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu) IS NOT NULL THEN CONCAT('duns-', COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu))
+          ELSE CONCAT('name-', COALESCE(fpds.awardee_or_recipient_legal, fabs.awardee_or_recipient_legal)) END
+        )
+      )::uuid
+    OR sar.parent_recipient_unique_id IS DISTINCT FROM COALESCE(fpds.ultimate_parent_unique_ide, fabs.ultimate_parent_unique_ide)
 );
 
---------------------------------------------------------------------------------
--- Step 2, update summary_award_recipient using txn_earliest_temp
---------------------------------------------------------------------------------
-DO $$ BEGIN RAISE NOTICE 'Step 2: Create summary_award_recipient'; END $$;
 
-BEGIN;
-TRUNCATE TABLE public.summary_award_recipient RESTART IDENTITY;
 INSERT INTO public.summary_award_recipient
   (award_id, action_date, recipient_hash, parent_recipient_unique_id)
-  SELECT
-      DISTINCT ON (award_id)
-      earliest_transaction_temp.award_id,
-      earliest_transaction_temp.action_date,
-      txn_matview.recipient_hash,
-      txn_matview.parent_recipient_unique_id
-  FROM public.earliest_transaction_temp
-  JOIN universal_transaction_matview txn_matview ON (earliest_transaction_temp.id = txn_matview.transaction_id);
-DROP TABLE public.earliest_transaction_temp;
-COMMIT;
+SELECT
+    a.id AS award_id,
+    a.date_signed AS action_date,
+    MD5(UPPER(
+      CASE
+        WHEN COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu) IS NOT NULL THEN CONCAT('duns-', COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu))
+        ELSE CONCAT('name-', COALESCE(fpds.awardee_or_recipient_legal, fabs.awardee_or_recipient_legal)) END
+      )
+    )::uuid AS recipient_hash,
+    COALESCE(fpds.ultimate_parent_unique_ide, fabs.ultimate_parent_unique_ide) AS parent_recipient_unique_id
+FROM public.awards a
+LEFT OUTER JOIN public.transaction_fpds fpds ON (a.earliest_transaction_id = fpds.transaction_id)
+LEFT OUTER JOIN public.transaction_fabs fabs ON (a.earliest_transaction_id = fabs.transaction_id)
+WHERE a.date_signed >= '2007-10-01'
+ON CONFLICT(award_id) DO NOTHING;

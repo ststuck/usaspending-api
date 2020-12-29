@@ -4,7 +4,6 @@ from collections import namedtuple, OrderedDict
 from django.conf import settings
 from django.db import connections, router, DEFAULT_DB_ALIAS
 from psycopg2.sql import Composable, Identifier, SQL
-
 from usaspending_api.awards.models import Award
 from usaspending_api.common.exceptions import InvalidParameterException
 
@@ -44,7 +43,7 @@ def read_sql_file(file_path):
         sql_file = fd.read()
 
     # all SQL commands (split on ';') and trimmed for whitespaces
-    return [command.strip() for command in sql_file.split(";") if command]
+    return [command.strip() for command in sql_file.split(";") if command.strip()]
 
 
 def _build_order_by_column(sort_column, sort_order=None, sort_null=None):
@@ -173,8 +172,8 @@ def cursor_fetcher(cursor):
 
 def fetchall_fetcher(cursor):
     """
-    Fetcher that returns the default fetchall() if the cursor contains results
-    or None if not.  Return value will be roughly equivalent to:
+    Fetcher that returns the default fetchall().  Return value will be
+    roughly equivalent to:
 
         [
             (54360982, None),
@@ -182,9 +181,7 @@ def fetchall_fetcher(cursor):
         ]
 
     """
-    if cursor.rowcount > -1:
-        return cursor.fetchall()
-    return None
+    return cursor.fetchall()
 
 
 def named_tuple_fetcher(cursor):
@@ -271,6 +268,11 @@ def execute_sql_to_named_tuple(sql, model=Award, read_only=True):
     return execute_sql(sql, model=model, fetcher=named_tuple_fetcher, read_only=read_only)
 
 
+def execute_sql_return_single_value(sql, model=Award, read_only=True):
+    """ Convenience function to return execute_sql results as a list of named tuples. """
+    return execute_sql(sql, model=model, fetcher=single_value_fetcher, read_only=read_only)
+
+
 def get_connection(model=Award, read_only=True):
     """
     As of this writing, USAspending alternates database reads between multiple
@@ -302,3 +304,14 @@ def get_connection(model=Award, read_only=True):
     else:
         _connection = connections[router.db_for_write(model)]
     return _connection
+
+
+def close_all_django_db_conns() -> None:
+    """
+        Helper function to close all DB connetions
+        Sometimes we have to kill any DB connections before forking processes
+        as Django will want to share the single connection with all processes
+        and we don't want to have any deadlock/SSL problems due to that.
+     """
+
+    connections.close_all()

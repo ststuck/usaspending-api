@@ -1,17 +1,24 @@
 from decimal import Decimal
-from django.db.models import F, Sum, Value, CharField, Q, Case, When
+from django.db.models import F, Sum, Value, CharField, Q, OuterRef, Exists
 from django.db.models.functions import Coalesce
-from usaspending_api.references.constants import DOD_CGAC
-from usaspending_api.references.helpers import dod_tas_agency_filter
 from usaspending_api.references.models import Agency
+from usaspending_api.submissions.models import SubmissionAttributes
 
 
 class Explorer(object):
     def __init__(self, alt_set, queryset):
         # Moving agency mapping outside function to reduce response time
-        agency_queryet = Agency.objects.filter(toptier_flag=True).values("id", "toptier_agency__toptier_code")
-        self.agency_ids = {agency["toptier_agency__toptier_code"]: agency["id"] for agency in agency_queryet}
-
+        agency_queryet = (
+            Agency.objects.filter(toptier_flag=True)
+            .values("id", "toptier_agency__toptier_code")
+            .annotate(
+                link=Exists(SubmissionAttributes.objects.filter(toptier_code=OuterRef("toptier_agency__toptier_code")))
+            )
+        )
+        self.agency_ids = {
+            agency["toptier_agency__toptier_code"]: {"id": agency["id"], "link": agency["link"]}
+            for agency in agency_queryet
+        }
         self.alt_set = alt_set
         self.queryset = queryset
 
@@ -100,10 +107,6 @@ class Explorer(object):
         # Recipients Queryset
         alt_set = (
             self.alt_set.filter(~Q(transaction_obligated_amount=Decimal("NaN")))
-            .filter(
-                Q(award__latest_transaction__contract_data__awardee_or_recipient_legal__isnull=False)
-                | Q(award__latest_transaction__assistance_data__awardee_or_recipient_legal__isnull=False)
-            )
             .annotate(
                 id=Coalesce(
                     "award__latest_transaction__contract_data__awardee_or_recipient_legal",
@@ -127,21 +130,13 @@ class Explorer(object):
         return alt_set
 
     def agency(self):
-        dod_filter = dod_tas_agency_filter("treasury_account")
-
         # Funding Top Tier Agencies Querysets
         queryset = (
             self.queryset.filter(treasury_account__funding_toptier_agency__isnull=False)
             .annotate(
                 type=Value("agency", output_field=CharField()),
-                name=Case(
-                    When(dod_filter, then=Value("Department of Defense")),
-                    default=F("treasury_account__funding_toptier_agency__name"),
-                ),
-                code=Case(
-                    When(dod_filter, then=Value(DOD_CGAC)),
-                    default=F("treasury_account__funding_toptier_agency__toptier_code"),
-                ),
+                name=F("treasury_account__funding_toptier_agency__name"),
+                code=F("treasury_account__funding_toptier_agency__toptier_code"),
             )
             .values("type", "name", "code")
             .annotate(amount=Sum("obligations_incurred_by_program_object_class_cpe"))
@@ -149,8 +144,8 @@ class Explorer(object):
         )
 
         for element in queryset:
-            element["id"] = self.agency_ids[element["code"]]
-
+            element["id"] = self.agency_ids[element["code"]]["id"]
+            element["link"] = self.agency_ids[element["code"]]["link"]
         return queryset
 
     def award_category(self):

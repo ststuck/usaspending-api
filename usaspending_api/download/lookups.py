@@ -17,6 +17,7 @@ from usaspending_api.download.helpers.elasticsearch_download_functions import (
     AwardsElasticsearchDownload,
     TransactionsElasticsearchDownload,
 )
+from usaspending_api.download.helpers.disaster_filter_functions import disaster_filter_function
 from usaspending_api.search.models import AwardSearchView, UniversalTransactionView, SubawardView
 from usaspending_api.awards.v2.filters.idv_filters import (
     idv_order_filter,
@@ -35,10 +36,6 @@ from usaspending_api.awards.v2.filters.matview_filters import (
 from usaspending_api.awards.v2.filters.sub_award import subaward_download
 from usaspending_api.awards.v2.lookups.lookups import award_type_mapping
 
-# Temporary hotfix to get custom award downloads working until a permanent solution can be found
-# from usaspending_api.download.filestreaming.generate_export_query import (
-#     generate_file_b_custom_account_download_export_query,
-# )
 from usaspending_api.financial_activities.models import FinancialAccountsByProgramActivityObjectClass
 from usaspending_api.download.helpers.download_annotation_functions import (
     universal_transaction_matview_annotations,
@@ -78,7 +75,6 @@ VALUE_MAPPINGS = {
         "annotations_function": universal_award_matview_annotations,
     },
     # Elasticsearch Award Level
-    # Lives alongside Postgres functionality for /api/v2/download/awards/ as of 1/17/2020
     "elasticsearch_awards": {
         "source_type": "award",
         "table": AwardSearchView,
@@ -103,7 +99,6 @@ VALUE_MAPPINGS = {
         "annotations_function": universal_transaction_matview_annotations,
     },
     # Elasticsearch Transaction Level
-    # Lives alongside Postgres functionality for /api/v2/download/transactions/ as of 1/17/2020
     "elasticsearch_transactions": {
         "source_type": "award",
         "table": UniversalTransactionView,
@@ -144,8 +139,6 @@ VALUE_MAPPINGS = {
         "download_name": "{data_quarters}_{agency}_{level}_AccountBreakdownByPA-OC_{timestamp}",
         "zipfile_template": "{data_quarters}_{agency}_{level}_AccountBreakdownByPA-OC_{timestamp}",
         "filter_function": account_download_filter,
-        # Temporary hotfix to get custom award downloads working until a permanent solution can be found
-        # "export_query_function": generate_file_b_custom_account_download_export_query,
     },
     "award_financial": {
         "source_type": "account",
@@ -239,6 +232,14 @@ VALUE_MAPPINGS = {
         "is_for_assistance": True,
         "annotations_function": idv_transaction_annotations,
     },
+    "disaster_recipient": {
+        "source_type": "disaster",
+        "table": AwardSearchView,
+        "table_name": "recipient",
+        "download_name": "COVID-19_Recipients_{award_category}_{timestamp}",
+        "filter_function": disaster_filter_function,
+        "base_fields": ["recipient_name", "recipient_unique_id"],
+    },
 }
 
 # Bulk Download still uses "prime awards" instead of "transactions"
@@ -270,6 +271,7 @@ ROW_CONSTRAINT_FILTER_DEFAULTS = {
     "federal_account_ids": [],
     "object_class_ids": [],
     "program_activity_ids": [],
+    "def_codes": [],
 }
 ACCOUNT_FILTER_DEFAULTS = {
     "agency": "all",

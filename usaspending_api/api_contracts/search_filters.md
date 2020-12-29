@@ -367,17 +367,50 @@ Request parameter description:
 **Example Request:**
 ```
 {
-    "naics_codes": ["336411"]
+    "naics_codes": {
+        "require": ["33"],
+        "exclude": ["336411"]
+    }
 }
 ```
 
-Request parameter description:
-* `naics_codes` (List) : Top level key name for filter. Contains list of Strings corresponding to NAICS Codes.
+`naics_codes` (NAICSFilterObject) : Two nullable lists of strings: `require` and `exclude`. 
+* When `require` is provided, search will only return results that have a NAICS code that starts with one element from the require list. 
+* When `exclude` is provided,  search will only return results that do NOT have a NAICS code that starts with any element from the exclude list. 
+* If an element matches both lists, the more specific rule (longer prefix) supercedes.
 
+## TAS
+
+**Description:** There are two filters for TAS: tas_codes and treasury_account_components. Unlike other filters, these two work on OR logic with each other (but AND logic with all other filters)
+
+**Example Request:**
+```
+{
+    "tas_codes": {
+        "require": [["091"]],
+        "exclude": [["091","091-0800"]]
+    }, 
+    "treasury_account_components": [{"aid":"005","bpoa":"2015","epoa":"2015","main":"0107","sub":"000"}]
+}
+```
+
+`tas_codes` (TASFilterObject) : Two nullable arrays of arrays of strings: `require` and `exclude`. 
+* When `require` is provided, search will only return results that have a TAS code that is a descendant of one of the paths from the require list. 
+* When `exclude` is provided,  search will only return results that do NOT have a TAS code that is a descendant of one of the paths from the exclude list. 
+* If an element matches both lists, the more specific rule (longer array) supercedes.
+
+`treasury_account_components` (TreasuryAccountComponentsObject): List of objects. Each object can have any of the following keys, and will filter results down to those that match the value for each key provided:
+* `ata` Allocation Transfer Agency
+* `aid` Agency Identifier
+* `bpoa` Beginning Period of Availability
+* `epoa` Ending Period of Availability
+* `a` Availability Code
+* `main` Main Account Code
+* `sub` Sub Account Code
 
 ## PSC
 
-**Description:** Filtering based on autocomplete selections for PSC Code.
+**Description:** Filtering based on autocomplete or tree filter selections for PSC Code.
 
 **Example Request:**
 ```
@@ -385,9 +418,21 @@ Request parameter description:
     "psc_codes": ["1510"]
 }
 ```
+*OR*
+```
+{
+    "psc_codes": {
+        "require": [["091"]]
+        "exclude": [["091", "091-0800"]]
+    }
+}
+```
 
 Request parameter description:
-* `psc_codes` (List) : Top level key name for filter. Contains list of Strings corresponding to PSC Codes.
+* `psc_codes` (List or Object) : Top level key name for filter.  Contains list of Strings corresponding to PSC Codes or an object that exposes `require` and `exclude` filters where:
+    * When `require` is provided, search will only return results that have a PSC code that is a descendant of one of the paths from the require list. 
+    * When `exclude` is provided, search will only return results that do NOT have a PSC code that is a descendant of one of the paths from the exclude list. 
+    * If an element matches both lists, the more specific rule (longer array) supercedes.
 
 ## Type of Contract Pricing
 

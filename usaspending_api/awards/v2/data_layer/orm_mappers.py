@@ -107,6 +107,7 @@ FABS_ASSISTANCE_FIELDS = OrderedDict(
         ("legal_entity_zip_last4", "_rl_zip4"),
         ("legal_entity_zip5", "_rl_zip5"),
         ("legal_entity_foreign_posta", "_rl_foreign_postal_code"),
+        ("legal_entity_foreign_city", "_rl_foreign_city"),
         ("legal_entity_foreign_provi", "_rl_foreign_province"),
         # "Place of Performance" fields below
         ("place_of_perform_country_c", "_pop_location_country_code"),
@@ -198,6 +199,8 @@ FPDS_CONTRACT_FIELDS = OrderedDict(
         ("type_of_contract_pric_desc", "type_of_contract_pricing_description"),
         ("last_modified", "_last_modified"),
         ("period_of_perf_potential_e", "_period_of_perf_potential_e"),
+        ("national_interest_action", "national_interest_action"),
+        ("national_interest_desc", "national_interest_action_description"),
         # "Recipient" fields below
         ("awardee_or_recipient_legal", "_recipient_name"),
         ("awardee_or_recipient_uniqu", "_recipient_unique_id"),
@@ -214,7 +217,8 @@ FPDS_CONTRACT_FIELDS = OrderedDict(
         ("legal_entity_address_line2", "_rl_address_line2"),
         ("legal_entity_address_line3", "_rl_address_line3"),
         ("legal_entity_congressional", "_rl_congressional_code"),
-        ("legal_entity_zip_last4", "_rl_zip4"),
+        ("legal_entity_zip_last4", "_rl_zip_last_4"),
+        ("legal_entity_zip4", "_rl_zip4"),
         ("legal_entity_zip5", "_rl_zip5"),
         # "Place of Performance Location"
         ("place_of_perform_country_c", "_pop_location_country_code"),

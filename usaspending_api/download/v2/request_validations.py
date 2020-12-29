@@ -1,49 +1,62 @@
 from copy import deepcopy
+from datetime import MINYEAR, MAXYEAR
 from django.conf import settings
-
+from typing import Optional
 from usaspending_api.awards.models import Award
 from usaspending_api.awards.v2.filters.location_filter_geocode import location_error_handling
 from usaspending_api.awards.v2.lookups.lookups import (
+    all_subaward_types,
+    assistance_type_mapping,
     award_type_mapping,
     contract_type_mapping,
     idv_type_mapping,
-    assistance_type_mapping,
+    grant_type_mapping,
+    direct_payment_type_mapping,
+    loan_type_mapping,
+    other_type_mapping,
 )
 from usaspending_api.common.exceptions import InvalidParameterException
+from usaspending_api.common.helpers import fiscal_year_helpers as fy_helpers
 from usaspending_api.common.validator.award_filter import AWARD_FILTER
 from usaspending_api.common.validator.tinyshield import TinyShield
 from usaspending_api.common.validator.utils import get_model_by_name
 from usaspending_api.download.helpers import check_types_and_assign_defaults, parse_limit, validate_time_periods
 from usaspending_api.download.lookups import (
-    VALUE_MAPPINGS,
-    SHARED_AWARD_FILTER_DEFAULTS,
-    YEAR_CONSTRAINT_FILTER_DEFAULTS,
-    ROW_CONSTRAINT_FILTER_DEFAULTS,
     ACCOUNT_FILTER_DEFAULTS,
     FILE_FORMATS,
+    ROW_CONSTRAINT_FILTER_DEFAULTS,
+    SHARED_AWARD_FILTER_DEFAULTS,
     VALID_ACCOUNT_SUBMISSION_TYPES,
+    VALUE_MAPPINGS,
+    YEAR_CONSTRAINT_FILTER_DEFAULTS,
 )
+from usaspending_api.references.models import DisasterEmergencyFundCode
+from usaspending_api.submissions import helpers as sub_helpers
 
 
-def validate_award_request(request_data):
+def validate_award_request(request_data: dict):
     """Analyze request and raise any formatting errors as Exceptions"""
 
-    _validate_required_parameters(request_data, ["award_levels", "filters"])
+    _validate_required_parameters(request_data, ["filters"])
     filters = _validate_filters(request_data)
     award_levels = _validate_award_levels(request_data)
 
     json_request = {"download_types": award_levels, "filters": {}}
 
     # Set defaults of non-required parameters
-    json_request["agency"] = request_data["filters"]["agency"] if request_data["filters"].get("agency") else "all"
     json_request["columns"] = request_data.get("columns", [])
     json_request["file_format"] = str(request_data.get("file_format", "csv")).lower()
 
     check_types_and_assign_defaults(filters, json_request["filters"], SHARED_AWARD_FILTER_DEFAULTS)
 
-    json_request["filters"]["award_type_codes"] = _validate_award_type_codes(filters)
+    # Award type validation depends on the
+    if filters.get("prime_and_sub_award_types") is not None:
+        json_request["filters"]["prime_and_sub_award_types"] = _validate_award_and_subaward_types(filters)
+    else:
+        json_request["filters"]["award_type_codes"] = _validate_award_type_codes(filters)
 
     _validate_and_update_locations(filters, json_request)
+    _validate_location_scope(filters, json_request)
     _validate_tas_codes(filters, json_request)
     _validate_file_format(json_request)
 
@@ -170,30 +183,97 @@ def validate_account_request(request_data):
     filters = _validate_filters(request_data)
 
     json_request["file_format"] = str(request_data.get("file_format", "csv")).lower()
+
     _validate_file_format(json_request)
 
-    # Validate required filters
-    for required_filter in ["fy", "quarter"]:
-        if required_filter not in filters:
-            raise InvalidParameterException("Missing one or more required filters: {}".format(required_filter))
-        else:
-            try:
-                filters[required_filter] = int(filters[required_filter])
-            except (TypeError, ValueError):
-                raise InvalidParameterException("{} filter not provided as an integer".format(required_filter))
-        json_request["filters"][required_filter] = filters[required_filter]
+    fy = _validate_fiscal_year(filters)
+    quarter = _validate_fiscal_quarter(filters)
+    period = _validate_fiscal_period(filters)
 
-    # Validate fiscal_quarter
-    if json_request["filters"]["quarter"] not in [1, 2, 3, 4]:
-        raise InvalidParameterException("quarter filter must be a valid fiscal quarter (1, 2, 3, or 4)")
+    fy, quarter, period = _validate_and_bolster_requested_submission_window(fy, quarter, period)
+
+    json_request["filters"]["fy"] = fy
+    json_request["filters"]["quarter"] = quarter
+    json_request["filters"]["period"] = period
 
     _validate_submission_type(filters)
 
     json_request["download_types"] = request_data["filters"]["submission_types"]
     json_request["agency"] = request_data["filters"]["agency"] if request_data["filters"].get("agency") else "all"
 
+    json_request["filters"]["def_codes"] = _validate_def_codes(filters)
+
     # Validate the rest of the filters
     check_types_and_assign_defaults(filters, json_request["filters"], ACCOUNT_FILTER_DEFAULTS)
+
+    return json_request
+
+
+def validate_disaster_recipient_request(request_data):
+    _validate_required_parameters(request_data, ["filters"])
+    model = [
+        {
+            "key": "filters|def_codes",
+            "name": "def_codes",
+            "type": "array",
+            "array_type": "enum",
+            "enum_values": sorted(DisasterEmergencyFundCode.objects.values_list("code", flat=True)),
+            "allow_nulls": False,
+            "optional": False,
+        },
+        {
+            "key": "filters|query",
+            "name": "query",
+            "type": "text",
+            "text_type": "search",
+            "allow_nulls": False,
+            "optional": True,
+        },
+        {
+            "key": "filters|award_type_codes",
+            "name": "award_type_codes",
+            "type": "array",
+            "array_type": "enum",
+            "enum_values": sorted(award_type_mapping.keys()),
+            "allow_nulls": False,
+            "optional": True,
+        },
+    ]
+    filters = TinyShield(model).block(request_data)["filters"]
+
+    # Determine what to use in the filename based on "award_type_codes" filter;
+    # Also add "face_value_of_loans" column if only loan types
+    award_category = "All-Awards"
+    award_type_codes = set(filters.get("award_type_codes", award_type_mapping.keys()))
+    columns = ["recipient", "award_obligations", "award_outlays", "number_of_awards"]
+
+    if award_type_codes <= set(contract_type_mapping.keys()):
+        award_category = "Contracts"
+    elif award_type_codes <= set(idv_type_mapping.keys()):
+        award_category = "Contract-IDVs"
+    elif award_type_codes <= set(grant_type_mapping.keys()):
+        award_category = "Grants"
+    elif award_type_codes <= set(loan_type_mapping.keys()):
+        award_category = "Loans"
+        columns.insert(3, "face_value_of_loans")
+    elif award_type_codes <= set(direct_payment_type_mapping.keys()):
+        award_category = "Direct-Payments"
+    elif award_type_codes <= set(other_type_mapping.keys()):
+        award_category = "Other-Financial-Assistance"
+
+    # Need to specify the field to use "query" filter on if present
+    query_text = filters.pop("query", None)
+    if query_text:
+        filters["query"] = {"text": query_text, "fields": ["recipient_name"]}
+
+    json_request = {
+        "award_category": award_category,
+        "columns": tuple(columns),
+        "download_types": ["disaster_recipient"],
+        "file_format": str(request_data.get("file_format", "csv")).lower(),
+        "filters": filters,
+    }
+    _validate_file_format(json_request)
 
     return json_request
 
@@ -249,8 +329,29 @@ def _validate_award_type_codes(filters):
         award_type_codes = list(award_type_mapping)
     for award_type_code in award_type_codes:
         if award_type_code not in award_type_mapping:
-            raise InvalidParameterException("Invalid award_type: {}".format(award_type_code))
+            raise InvalidParameterException(f"Invalid award_type: {award_type_code}")
     return award_type_codes
+
+
+def _validate_award_and_subaward_types(filters):
+    prime_and_sub_award_types = filters.get("prime_and_sub_award_types", {})
+    prime_award_types = prime_and_sub_award_types.get("prime_awards", [])
+    sub_award_types = prime_and_sub_award_types.get("sub_awards", [])
+
+    if len(prime_award_types) == 0 and len(sub_award_types) == 0:
+        raise InvalidParameterException(
+            "Missing one or more required body parameters: prime_award_types or sub_award_types"
+        )
+
+    for award_type in prime_award_types:
+        if award_type not in award_type_mapping:
+            raise InvalidParameterException(f"Invalid award_type: {award_type}")
+
+    for award_type in sub_award_types:
+        if award_type not in all_subaward_types:
+            raise InvalidParameterException(f"Invalid subaward_type: {award_type}")
+
+    return {"prime_awards": prime_award_types, "sub_awards": sub_award_types}
 
 
 def _validate_filters(request_data):
@@ -274,6 +375,19 @@ def _validate_and_update_locations(filters, json_request):
             json_request["filters"][location_filter] = filters[location_filter]
 
 
+def _validate_location_scope(filters: dict, json_request: dict) -> None:
+    if "filters" not in json_request:
+        json_request["filters"] = {}
+    for location_scope_filter in ["place_of_performance_scope", "recipient_scope"]:
+        if filters.get(location_scope_filter):
+            if filters[location_scope_filter] not in ["domestic", "foreign"]:
+                raise InvalidParameterException(
+                    f"Invalid value for {location_scope_filter}: {filters[location_scope_filter]}. Only "
+                    f"allows 'domestic' and 'foreign'."
+                )
+            json_request["filters"][location_scope_filter] = filters[location_scope_filter]
+
+
 def _validate_tas_codes(filters, json_request):
     if "tas_codes" in filters:
         tas_codes = {"filters": {"tas_codes": filters["tas_codes"]}}
@@ -294,6 +408,107 @@ def _validate_file_format(json_request: dict) -> None:
     if val not in FILE_FORMATS:
         msg = f"'{val}' is not an acceptable value for 'file_format'. Valid options: {tuple(FILE_FORMATS.keys())}"
         raise InvalidParameterException(msg)
+
+
+def _validate_fiscal_year(filters: dict) -> int:
+    if "fy" not in filters:
+        raise InvalidParameterException("Missing required filter 'fy'.")
+
+    try:
+        fy = int(filters["fy"])
+    except (TypeError, ValueError):
+        raise InvalidParameterException("'fy' filter not provided as an integer.")
+
+    if not fy_helpers.is_valid_year(fy):
+        raise InvalidParameterException(f"'fy' must be a valid year from {MINYEAR} to {MAXYEAR}.")
+
+    return fy
+
+
+def _validate_fiscal_quarter(filters: dict) -> Optional[int]:
+
+    if "quarter" not in filters:
+        return None
+
+    try:
+        quarter = int(filters["quarter"])
+    except (TypeError, ValueError):
+        raise InvalidParameterException(f"'quarter' filter not provided as an integer.")
+
+    if not fy_helpers.is_valid_quarter(quarter):
+        raise InvalidParameterException("'quarter' filter must be a valid fiscal quarter from 1 to 4.")
+
+    return quarter
+
+
+def _validate_fiscal_period(filters: dict) -> Optional[int]:
+
+    if "period" not in filters:
+        return None
+
+    try:
+        period = int(filters["period"])
+    except (TypeError, ValueError):
+        raise InvalidParameterException(f"'period' filter not provided as an integer.")
+
+    if not fy_helpers.is_valid_period(period):
+        raise InvalidParameterException(
+            "'period' filter must be a valid fiscal period from 2 to 12.  Agencies may not submit for period 1."
+        )
+
+    return period
+
+
+def _validate_def_codes(filters: dict) -> Optional[list]:
+
+    # case when the whole def_codes object is missing from filters
+    if "def_codes" not in filters or filters["def_codes"] is None:
+        return None
+
+    all_def_codes = sorted(DisasterEmergencyFundCode.objects.values_list("code", flat=True))
+    provided_codes = set([str(code).upper() for code in filters["def_codes"]])  # accept lowercase def_code
+
+    if not provided_codes.issubset(all_def_codes):
+        raise InvalidParameterException(
+            f"provide codes {filters['def_codes']} contain non-valid DEF Codes. List of valid DEFC {','.join(all_def_codes)}"
+        )
+
+    return list(provided_codes)
+
+
+def _validate_and_bolster_requested_submission_window(
+    fy: int, quarter: Optional[int], period: Optional[int]
+) -> (int, Optional[int], Optional[int]):
+    """
+    The assumption here is that each of the provided values has been validated independently already.
+    Now it's time to validate them as a pair.  We also need to bolster period or quarter since they
+    are mutually exclusive in the filter.
+    """
+    if quarter is None and period is None:
+        raise InvalidParameterException("Either 'period' or 'quarter' is required in filters.")
+
+    if quarter is not None and period is not None:
+        raise InvalidParameterException("Supply either 'period' or 'quarter' in filters but not both.")
+
+    if period is not None:
+        # If period is provided, then we are going to grab the most recently closed quarter in the
+        # same fiscal year equal to or less than the period requested.  If there are no closed
+        # quarters in the fiscal year matching this criteria then no quarterly submissions will be
+        # returned.  So, by way of example, if the user requests P7 and Q2 is closed then we will
+        # return P7 monthly and Q2 quarterly submissions.  If Q2 is not closed yet, we will return
+        # P7 monthly and Q1 quarterly submissions.  If P2 is requested then we will only return P2
+        # monthly submissions since there can be no closed quarter prior to P2 in the same year.
+        # Finally, if P3 is requested and Q1 is closed then we will return P3 monthly and Q1 quarterly
+        # submissions.  Man I hope that all made sense.
+        quarter = sub_helpers.get_last_closed_quarter_relative_to_month(fy, period)
+
+    else:
+        # This is the same idea as above, the big difference being that we do not have monthly
+        # submissions for earlier years so really this will either return the final period of
+        # the quarter or None.
+        period = sub_helpers.get_last_closed_month_relative_to_quarter(fy, quarter)
+
+    return fy, quarter, period
 
 
 def _validate_submission_type(filters: dict) -> None:

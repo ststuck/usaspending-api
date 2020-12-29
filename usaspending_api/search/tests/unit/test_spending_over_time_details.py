@@ -5,8 +5,8 @@ from datetime import datetime
 from model_mommy import mommy
 from rest_framework import status
 
-from usaspending_api.search.models import SummaryTransactionView
 from usaspending_api.common.helpers.generic_helper import get_time_period_message
+from usaspending_api.search.tests.data.utilities import setup_elasticsearch_test
 
 
 @pytest.fixture
@@ -145,7 +145,9 @@ def confirm_proper_ordering(group, results):
                 period = int(result["time_period"][group])
 
 
-def test_spending_over_time_fy_ordering(client, populate_models):
+def test_spending_over_time_fy_ordering(client, monkeypatch, elasticsearch_transaction_index, populate_models):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     group = "fiscal_year"
     test_payload = {
         "group": group,
@@ -183,7 +185,9 @@ def test_spending_over_time_fy_ordering(client, populate_models):
     confirm_proper_ordering(group, resp.data["results"])
 
 
-def test_spending_over_time_month_ordering(client, populate_models):
+def test_spending_over_time_month_ordering(client, monkeypatch, elasticsearch_transaction_index, populate_models):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     group = "month"
     test_payload = {
         "group": group,
@@ -247,7 +251,9 @@ def test_spending_over_time_month_ordering(client, populate_models):
     confirm_proper_ordering(group, resp.data["results"])
 
 
-def test_spending_over_time_funny_dates_ordering(client, populate_models):
+def test_spending_over_time_funny_dates_ordering(client, monkeypatch, elasticsearch_transaction_index, populate_models):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     group = "month"
     test_payload = {
         "group": group,
@@ -289,17 +295,3 @@ def test_spending_over_time_funny_dates_ordering(client, populate_models):
 
     # ensure ordering is correct
     confirm_proper_ordering(group, resp.data["results"])
-
-
-@pytest.mark.django_db
-def test_generated_pragmatic_obligation_calculation(pragmatic_fixture):
-    assert SummaryTransactionView.objects.all().count() == 2  # ensure both transactions are loaded
-
-    # ensure the generated_pragmatic_obligation values for a contract and a loan are correct
-    example_loan = SummaryTransactionView.objects.filter(type="07").values("generated_pragmatic_obligation")
-    assert int(example_loan[0]["generated_pragmatic_obligation"]) == 1000000
-
-    example_contract = SummaryTransactionView.objects.filter(action_date="2010-10-01").values(
-        "generated_pragmatic_obligation"
-    )
-    assert int(example_contract[0]["generated_pragmatic_obligation"]) == 9900

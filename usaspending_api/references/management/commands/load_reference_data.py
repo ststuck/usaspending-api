@@ -15,6 +15,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.logger.info("Beginning reference data loading. This may take a few minutes.")
 
+        self.logger.info("Loading DEF Codes")
+        call_command("load_disaster_emergency_fund_codes")
+
         self.logger.info("Loading reference_fixture.json")
         call_command("loaddata", "reference_fixture")
 
@@ -23,6 +26,9 @@ class Command(BaseCommand):
 
         self.logger.info("Loading state data")
         call_command("load_state_data")
+
+        self.logger.info("Loading object classes")
+        call_command("load_object_classes")
 
         # TAS's should only be loaded after agencies to ensure they can properly link to agencies
         self.logger.info("Loading TAS")
@@ -45,6 +51,18 @@ class Command(BaseCommand):
         self.logger.info("Loading CFDA data")
         call_command("loadcfda", "https://files.usaspending.gov/reference_data/cfda.csv")
 
+        self.logger.info("Loading Census Population Data")
+        call_command(
+            "load_population_data",
+            file="https://files.usaspending.gov/reference_data/census_2019_population_county.csv",
+            type="county",
+        )
+        call_command(
+            "load_population_data",
+            file="https://files.usaspending.gov/reference_data/census_2019_population_congressional_district.csv",
+            type="district",
+        )
+
         self.logger.info("Loading descriptions of commonly used terms")
         call_command("load_glossary")
 
@@ -64,5 +82,10 @@ class Command(BaseCommand):
         self.logger.info("Loading GTAS Total Obligation data")
         self.logger.warning("GTAS Total Obligation loader requires access to a broker database with the relevant data")
         call_command("load_gtas")
+
+        self.logger.info("Loading DABS Submission Schedule Windows")
+        call_command(
+            "load_dabs_submission_window_schedule", file="usaspending_api/data/dabs_submission_window_schedule.csv"
+        )
 
         self.logger.info("Reference data loaded.")

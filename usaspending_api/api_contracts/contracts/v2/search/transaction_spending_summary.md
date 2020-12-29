@@ -8,9 +8,21 @@ HOST: https://api.usaspending.gov
 Returns the high-level aggregations of the counts and dollar amounts for all transactions which match the keyword filter
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `filters` (required, FilterObject)
+        + `filters` (required, AdvancedFilterObject)
             Need to provide `keywords`
+            
+    + Body
+        
+        
+            {"filters":{"keyword":"test"}}
 
 + Response 200 (application/json)
     + Attributes (object)
@@ -20,6 +32,7 @@ Returns the high-level aggregations of the counts and dollar amounts for all tra
 
     + Body
 
+            
             {
                 "results": {
                     "prime_awards_obligation_amount": 55791124858.71,
@@ -29,5 +42,5 @@ Returns the high-level aggregations of the counts and dollar amounts for all tra
 
 # Data Structures
 
-## FilterObject (object)
+## AdvancedFilterObject (object)
 + `keywords`: `lockheed` (required, array[string], fixed-type)

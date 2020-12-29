@@ -107,7 +107,15 @@ def spending_by_award_test_data():
         total_obligation=12.00,
     )
 
-    mommy.make("accounts.FederalAccount", id=1)
+    # Toptier Agency
+    toptier_agency_1 = {"pk": 1, "abbreviation": "TA1", "name": "TOPTIER AGENCY 1", "toptier_code": "ABC"}
+
+    mommy.make("references.ToptierAgency", **toptier_agency_1)
+
+    # TAS
+    mommy.make(
+        "accounts.FederalAccount", id=1, parent_toptier_agency_id=1, agency_identifier="1", main_account_code="0001"
+    )
     mommy.make(
         "accounts.TreasuryAppropriationAccount",
         treasury_account_identifier=1,
@@ -115,12 +123,74 @@ def spending_by_award_test_data():
         main_account_code="4930",
         federal_account_id=1,
     )
-    mommy.make("awards.FinancialAccountsByAwards", award_id=1, treasury_account_id=1)
+    defc = mommy.make("references.DisasterEmergencyFundCode", code="L", group_name="covid_19")
+    mommy.make(
+        "submissions.DABSSubmissionWindowSchedule",
+        id="2022080",
+        is_quarter=False,
+        period_start_date="2022-05-01",
+        period_end_date="2022-05-30",
+        submission_fiscal_year=2022,
+        submission_fiscal_quarter=3,
+        submission_fiscal_month=8,
+        submission_reveal_date="2020-5-15",
+    )
+    # Unclosed submisssion window
+    mommy.make(
+        "submissions.DABSSubmissionWindowSchedule",
+        id="9999070",
+        is_quarter=True,
+        period_start_date="9999-04-01",
+        period_end_date="9999-04-30",
+        submission_fiscal_year=9999,
+        submission_fiscal_quarter=3,
+        submission_fiscal_month=7,
+        submission_reveal_date="9999-4-15",
+    )
+    sa1 = mommy.make(
+        "submissions.SubmissionAttributes",
+        reporting_fiscal_year=2022,
+        reporting_fiscal_period=8,
+        quarter_format_flag=False,
+        reporting_period_start="2022-05-01",
+        submission_window_id="2022080",
+    )
+    sa2 = mommy.make(
+        "submissions.SubmissionAttributes",
+        pk=1,
+        reporting_fiscal_period=8,
+        reporting_fiscal_year=9999,
+        reporting_period_end="9999-06-30",
+        reporting_period_start="9999-04-02",
+        submission_window_id="9999070",
+    )
 
-    # Toptier Agency
-    toptier_agency_1 = {"pk": 1, "abbreviation": "TA1", "name": "TOPTIER AGENCY 1", "toptier_code": "ABC"}
-
-    mommy.make("references.ToptierAgency", **toptier_agency_1)
+    mommy.make(
+        "awards.FinancialAccountsByAwards",
+        award_id=1,
+        treasury_account_id=1,
+        transaction_obligated_amount=100,
+        gross_outlay_amount_by_award_cpe=100,
+        disaster_emergency_fund=defc,
+        submission=sa1,
+    )
+    mommy.make(
+        "awards.FinancialAccountsByAwards",
+        award_id=1,
+        treasury_account_id=1,
+        transaction_obligated_amount=99,
+        gross_outlay_amount_by_award_cpe=99,
+        disaster_emergency_fund=defc,
+        submission=sa2,
+    )
+    mommy.make(
+        "awards.FinancialAccountsByAwards",
+        award_id=2,
+        transaction_obligated_amount=0,
+        gross_outlay_amount_by_award_cpe=0,
+        disaster_emergency_fund=defc,
+        submission=sa2,
+    )
 
     # Subtier Agency
     subtier_agency_1 = {"pk": 1, "abbreviation": "SA1", "name": "SUBTIER AGENCY 1", "subtier_code": "DEF"}
@@ -132,12 +202,12 @@ def spending_by_award_test_data():
     # Agency
     mommy.make("references.Agency", pk=1, toptier_agency_id=1, subtier_agency_id=1)
 
-    mommy.make("awards.TransactionNormalized", id=1, award_id=1, action_date="2014-01-01", is_fpds=True)
+    mommy.make("awards.TransactionNormalized", id=1, award_id=1, action_date="2020-04-01", is_fpds=True)
     mommy.make(
         "awards.TransactionNormalized",
         id=2,
         award_id=1,
-        action_date="2015-01-01",
+        action_date="2020-04-01",
         is_fpds=True,
         business_categories=["business_category_1_3"],
     )
@@ -160,13 +230,13 @@ def spending_by_award_test_data():
         place_of_performance_state="VA",
         place_of_perform_country_c="USA",
         place_of_perform_county_co="013",
-        place_of_perform_city_name="Arlington",
+        place_of_perform_city_name="ARLINGTON",
         legal_entity_state_code="VA",
         legal_entity_country_code="USA",
         legal_entity_county_code="013",
-        legal_entity_city_name="Arlington",
-        naics="NACIS_test",
-        product_or_service_code="PSC_test",
+        legal_entity_city_name="ARLINGTON",
+        naics="112233",
+        product_or_service_code="PSC1",
         type_of_contract_pricing="contract_pricing_test",
         type_set_aside="type_set_aside_test",
         extent_competed="extent_competed_test",
@@ -180,6 +250,7 @@ def spending_by_award_test_data():
         legal_entity_state_code="VA",
         legal_entity_country_code="USA",
         legal_entity_county_code="012",
+        naics="112244",
     )
     mommy.make("awards.TransactionFPDS", transaction_id=4)
     mommy.make("awards.TransactionFPDS", transaction_id=5)
@@ -201,13 +272,14 @@ def spending_by_award_test_data():
         subaward_number=11111,
         prime_award_type="A",
         award_type="procurement",
-        action_date="2014-01-01",
+        action_date="2020-04-02",
         amount=10000,
         prime_recipient_name="recipient_name_for_award_1001",
         recipient_unique_id="duns_1001",
         piid="PIID1001",
         awarding_toptier_agency_name="awarding toptier 8001",
         awarding_subtier_agency_name="awarding subtier 8001",
+        product_or_service_code="PSC2",
     )
     mommy.make(
         "awards.Subaward",
@@ -217,7 +289,7 @@ def spending_by_award_test_data():
         subaward_number=22222,
         prime_award_type="A",
         award_type="procurement",
-        action_date="2015-01-01",
+        action_date="2020-04-02",
         amount=20000,
         prime_recipient_name="recipient_name_for_award_1001",
         recipient_unique_id="duns_1001",
@@ -272,3 +344,6 @@ def spending_by_award_test_data():
         "program_activity": RefProgramActivity.objects.get(pk=1),
     }
     mommy.make("awards.FinancialAccountsByAwards", **financial_accounts_by_awards_1)
+
+    # Ref Country Code
+    mommy.make("references.RefCountryCode", country_code="USA", country_name="UNITED STATES")

@@ -1,22 +1,27 @@
 {
-  "index_patterns": null,
   "settings": {
     "index.mapping.ignore_malformed": true,
     "index.max_result_window": null,
     "index.refresh_interval": -1,
     "index": {
       "number_of_shards": 5,
-      "number_of_replicas": 0
+      "number_of_replicas": 0,
+      "sort.field" : ["total_obligation.keyword", "award_id"],
+      "sort.order" : ["desc", "desc"],
+      "sort.missing": ["_last", "_last"]
     },
     "analysis": {
       "analyzer": {
+        "contains_analyzer": {
+          "type": "custom",
+          "tokenizer": "ngram",
+          "filter": [
+            "uppercase"
+          ]
+        },
         "stemmer_analyzer": {
           "tokenizer": "standard",
-          "filter": [
-            "standard",
-            "lowercase",
-            "singular_stemmer"
-          ]
+          "filter": ["lowercase", "singular_stemmer"]
         }
       },
       "filter": {
@@ -27,19 +32,8 @@
       }
     }
   },
-  "sort": {
-    "fields": [
-      "total_obligation.keyword",
-      "award_id"
-    ],
-    "order": [
-      "desc",
-      "desc"
-    ]
-  },
   "mappings": {
-    "award_mapping": {
-      "properties": {
+   "properties": {
         "award_id": {
           "type": "integer"
         },
@@ -106,8 +100,9 @@
             }
           }
         },
-        "total_obl_bin": {
-          "type": "keyword"
+        "award_amount": {
+          "type": "scaled_float",
+          "scaling_factor": 100
         },
         "total_subsidy_cost": {
           "type": "scaled_float",
@@ -120,6 +115,10 @@
         "recipient_name": {
           "type": "text",
           "fields": {
+            "contains": {
+              "type": "text",
+              "analyzer": "contains_analyzer"
+            },
             "keyword": {
               "type": "keyword"
             }
@@ -141,9 +140,23 @@
             }
           }
         },
-        "parent_recipient_unique_id": {
+        "recipient_agg_key": {
           "type": "keyword",
-          "null_value": "NULL"
+          "eager_global_ordinals": true,
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "parent_recipient_unique_id": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "null_value": "NULL"
+            }
+          }
         },
         "business_categories": {
           "type": "text",
@@ -209,6 +222,10 @@
         "funding_toptier_agency_name": {
           "type": "text",
           "fields": {
+            "contains": {
+              "type": "text",
+              "analyzer": "contains_analyzer"
+            },
             "keyword": {
               "type": "keyword"
             }
@@ -262,6 +279,24 @@
             }
           }
         },
+        "funding_toptier_agency_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "funding_subtier_agency_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
         "recipient_location_country_code": {
           "type": "keyword"
         },
@@ -303,6 +338,36 @@
           "fields": {
             "keyword": {
               "type": "keyword"
+            }
+          }
+        },
+        "recipient_location_county_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "recipient_location_congressional_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "recipient_location_state_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
             }
           }
         },
@@ -358,9 +423,59 @@
             }
           }
         },
+        "pop_county_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "pop_congressional_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "pop_state_agg_key": {
+          "type": "keyword",
+          "eager_global_ordinals": true,
+          "null_value": "NULL",
+          "fields": {
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
         "cfda_number": {
           "type": "text",
+          "eager_global_ordinals": true,
           "fields": {
+            "contains": {
+              "type": "text",
+              "analyzer": "contains_analyzer"
+            },
+            "keyword": {
+              "type": "keyword"
+            },
+            "hash": {
+              "type": "murmur3"
+            }
+          }
+        },
+        "cfda_title": {
+          "type": "text",
+          "fields": {
+            "contains": {
+              "type": "text",
+              "analyzer": "contains_analyzer"
+            },
             "keyword": {
               "type": "keyword"
             }
@@ -420,10 +535,23 @@
         "naics_description": {
           "type": "text"
         },
-        "treasury_accounts": {
+        "tas_paths": {
           "type": "keyword"
+        },
+        "tas_components": {
+          "type": "keyword"
+        },
+        "disaster_emergency_fund_codes": {
+          "type": "keyword"
+        },
+        "total_covid_obligation": {
+          "type": "scaled_float",
+          "scaling_factor": 100
+        },
+        "total_covid_outlay": {
+          "type": "scaled_float",
+          "scaling_factor": 100
         }
       }
-    }
   }
 }

@@ -19,7 +19,7 @@ RUN yum -y install wget gcc openssl-devel bzip2-devel libffi libffi-devel zlib-d
 RUN yum -y groupinstall "Development Tools"
 
 ##### Install PostgreSQL 10 client (psql)
-RUN yum -y install https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-7-x86_64/pgdg-redhat10-10-2.noarch.rpm
+RUN yum -y install https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 RUN yum -y install postgresql10
 
 ##### Building python 3.7
@@ -40,6 +40,4 @@ RUN python3 -m pip install -r requirements/requirements.txt
 ##### Copy the rest of the project files into the container
 COPY . /dockermount
 
-##### Compose overrides DATABASE_URL
-ENV DATABASE_URL postgres://username@host.docker.internal:5432/data_store_api
 ENV PYTHONUNBUFFERED=0

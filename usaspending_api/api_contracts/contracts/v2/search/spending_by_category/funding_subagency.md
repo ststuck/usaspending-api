@@ -10,8 +10,15 @@ This endpoint supports the advanced search page and allow for complex filtering 
 This endpoint returns a list of the top results of Funding Subagencies sorted by the total amounts in descending order.
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `filters` (required, FilterObject)
+        + `filters` (required, AdvancedFilterObject)
             The filters to find with said category
         + `limit`: 5 (optional, number)
             The number of results to include per page
@@ -19,12 +26,22 @@ This endpoint returns a list of the top results of Funding Subagencies sorted by
             The page of results to return based on the limit
         + `subawards` (optional, boolean)
             Determines whether Prime Awards or Sub Awards are searched
-    + Body
+    + Body 
+        
         
             {
-                "filters": { 
-                    "keywords": ["Filter is required"] 
-                }
+                "filters": {
+                    "recipient_id": "1c3edaaa-611b-840c-bf2b-fd34df49f21f-P",
+                    "time_period": [
+                        {
+                            "start_date": "2019-09-28",
+                            "end_date": "2020-09-28"
+                        }
+                    ]
+                },
+                "category": "funding_subagency",
+                "limit": 5,
+                "page": 1
             }
 
 + Response 200 (application/json)
@@ -35,6 +52,37 @@ This endpoint returns a list of the top results of Funding Subagencies sorted by
         + `page_metadata` (PageMetadataObject)
         + `messages` (optional, array[string])
             An array of warnings or instructional directives to aid consumers of this endpoint with development and debugging.
+    + Body
+
+            
+            {
+                "category": "funding_subagency",
+                "limit": 10,
+                "page_metadata": {
+                    "page": 1,
+                    "next": 2,
+                    "previous": null,
+                    "hasNext": false,
+                    "hasPrevious": false
+                },
+                "results": [
+                    {
+                        "amount": 440219861071.72,
+                        "name": "Centers for Medicare and Medicaid Services",
+                        "code": "CMS",
+                        "id": 831
+                    },
+                    {
+                        "amount": 284429830939.4,
+                        "name": "Social Security Administration",
+                        "code": "SSA",
+                        "id": 539
+                    }
+                ],
+                "messages": [
+                    "For searches, time period start and end dates are currently limited to an earliest date of 2007-10-01.  For data going back to 2000-10-01, use either the Custom Award Download feature on the website or one of our download or bulk_download API endpoints as listed on https://api.usaspending.gov/docs/endpoints."
+                ]
+            }
 
 # Data Structures
 
@@ -51,7 +99,7 @@ This endpoint returns a list of the top results of Funding Subagencies sorted by
 + `hasNext` (required, boolean)
 
 ## Filter Objects
-### FilterObject (object)
+### AdvancedFilterObject (object)
 + `keywords` : `transport` (optional, array[string])
 + `time_period` (optional, array[TimePeriodObject], fixed-type)
 + `place_of_performance_scope` (optional, enum[string])
@@ -74,12 +122,14 @@ This endpoint returns a list of the top results of Funding Subagencies sorted by
     Award IDs surrounded by double quotes (e.g. `"SPE30018FLJFN"`) will perform exact matches as opposed to the default, fuzzier full text matches.  Useful for Award IDs that contain spaces or other word delimiters.
 + `award_amounts` (optional, array[AwardAmounts], fixed-type)
 + `program_numbers`: `10.331` (optional, array[string])
-+ `naics_codes`: `311812` (optional, array[string])
-+ `psc_codes`: `8940`, `8910` (optional, array[string])
++ `naics_codes` (optional, NAICSCodeObject)
++ `psc_codes` (optional, enum[PSCCodeObject, array[string]])
+    Supports new PSCCodeObject or legacy array of codes.
 + `contract_pricing_type_codes`: `J` (optional, array[string])
 + `set_aside_type_codes`: `NONE` (optional, array[string])
 + `extent_competed_type_codes`: `A` (optional, array[string])
 + `tas_codes` (optional, array[TASCodeObject], fixed-type)
++ `treasury_account_components` (optional, array[TreasuryAccountComponentsObject], fixed-type)
 
 ### TimePeriodObject (object)
 + `start_date`: `2017-10-01` (required, string)
@@ -110,13 +160,28 @@ This endpoint returns a list of the top results of Funding Subagencies sorted by
     + Members
         + `toptier`
         + `subtier`
-+ `name`: `Department of Defense` (required, string)
++ `name`: `Office of Inspector General` (required, string)
++ `toptier_name`: `Department of the Treasury` (optional, string)
+    Only applicable when `tier` is `subtier`.  Ignored when `tier` is `toptier`.  Provides a means by which to scope subtiers with common names to a
+    specific toptier.  For example, several agencies have an "Office of Inspector General".  If not provided, subtiers may span more than one toptier.
 
 ### AwardAmounts (object)
 + `lower_bound` (optional, number)
 + `upper_bound`: 1000000 (optional, number)
 
+### NAICSCodeObject (object)
++ `require`: [`33`] (optional, array[string], fixed-type)
++ `exclude`: [`3333`] (optional, array[string], fixed-type)
+
+### PSCCodeObject (object)
++ `require`: [[`Service`, `B`, `B5`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`Service`, `B`, `B5`, `B502`]] (optional, array[array[string]], fixed-type)
+
 ### TASCodeObject (object)
++ `require`: [[`091`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`091`, `091-0800`]] (optional, array[array[string]], fixed-type)
+
+### TreasuryAccountComponentsObject (object)
 + `ata` (optional, string, nullable)
     Allocation Transfer Agency Identifier - three characters
 + `aid` (required, string)

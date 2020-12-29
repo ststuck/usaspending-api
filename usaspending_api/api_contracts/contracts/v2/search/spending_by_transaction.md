@@ -8,8 +8,15 @@ HOST: https://api.usaspending.gov
 Returns transaction records which match the keyword and award type code filters.
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `filters` (required, FilterObject)
+        + `filters` (required, AdvancedFilterObject)
             Need to provide `keywords` and `award_type_codes`
         + `fields` (required, FieldNameObject)
             The field names to include in the response
@@ -28,6 +35,34 @@ Returns transaction records which match the keyword and award type code filters.
             + Members
                 + `asc`
                 + `desc`
+    + Body
+
+
+            {
+                "filters": {
+                    "keywords": ["test"],
+                    "award_type_codes": [
+                        "A",
+                        "B",
+                        "C",
+                        "D"
+                    ]
+                },
+                "fields": [
+                    "Award ID",
+                    "Mod",
+                    "Recipient Name",
+                    "Action Date",
+                    "Transaction Amount",
+                    "Awarding Agency",
+                    "Awarding Sub Agency",
+                    "Award Type"
+                ],
+                "page": 1,
+                "limit": 35,
+                "sort": "Transaction Amount",
+                "order": "desc"
+            }
 
 + Response 200 (application/json)
     + Attributes (object)
@@ -36,6 +71,7 @@ Returns transaction records which match the keyword and award type code filters.
         + `limit`: 10 (required, number)
 
     + Body
+
 
             {
                 "limit": 10,
@@ -283,6 +319,6 @@ List of column names to request
 - `Transaction Amount`
 
 
-## FilterObject (object)
+## AdvancedFilterObject (object)
 + `keywords`: `lockheed` (required, array[string], fixed-type)
 + `award_type_codes` (required, FilterObjectAwardTypes, fixed-type)

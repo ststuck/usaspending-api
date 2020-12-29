@@ -7,7 +7,7 @@ You should be using Node 6.11.0
 
 ### Contracts
 
-Contracts are stored in the `/contracts` directory. They must be written in [API Blueprint](https://apiblueprint.org/) but saved with a `.md` extension.
+Contracts are stored [here](contracts/). They must be written in [API Blueprint](https://apiblueprint.org/) but saved with a `.md` extension.
 
 ## For Testers and Automation
 
@@ -100,20 +100,37 @@ Testing a specific API contract:
 dredd ./contracts/state/StateProfile.md http://localhost:8000 --language=python --hookfiles=./hooks/hooks.py --hooks-worker-timeout=10000
 ```
 
+Dredd can also be used to test contract file syntax. Use the `--dry-run` flag to see parsing warnings and errors.
+
+```
+dredd ./contracts/path/to/file.md http://localhost:8000 --dry-run
+```
+
+
 **Remember:** Your developed endpoint must pass *all* API contracts at PR time.
 
 ### Generating Mock APIs
 
-When API development occurs concurrently with API integration development, you'll need to mock the upcoming API. You can use [Drakov](https://github.com/Aconex/drakov) to do this.
+When API development occurs concurrently with API integration development, you'll need to mock the upcoming API. To do this, follow these instructions:
 
-Run:
+1. run `npm install` at the root of `/api_contracts`
+1. run `npm run mock`
+1. This will spin up a mock implementation of the API at port 5000.
+
+This will spin up a mock API server at `http://localhost:5000` for every API contract ending in `.md` found within `/contracts`.
+
+### Troubleshooting the Mock Server
+1. If there is no Schema definition of the request object for an endpoint in a contract, you will have to exactly match the request object as defined in the contract to get a response from the mock API.
+1. For the API to respond to requests other than those that are hard-coded into the contract, add the following to the Request object definition of the Contract:
+```markdown
+    + Schema
+        {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "type": "object"
+        }
 ```
-npm run mock
-```
 
-This will spin up a mock API server at `http://localhost:5000` for every API contract ending in `.md` found within `contracts`.
-
-In `GlobalConstants_dev.js` in the `usaspending-website` code, change the `API` value to `http://localhost:5000/api/`.
+In `GlobalConstants_dev.js` in the `usaspending-website` code, change the `API` value to `http://localhost:5000/api/`. Or you can change the specific method call with the service request by adding `isMocked: true` to the configuration object passed to the `apiRequest` helper function.
 
 #### Mocking Specific API Blueprints
 

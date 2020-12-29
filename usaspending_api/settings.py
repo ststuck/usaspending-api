@@ -11,9 +11,9 @@ from django.utils.crypto import get_random_string
 from pathlib import Path
 from ddtrace import patch_all
 
-# All paths inside the project should be additive to BASE_DIR or APP_DIR
+# All paths inside the project should be additive to REPO_DIR or APP_DIR
 APP_DIR = Path(__file__).resolve().parent
-BASE_DIR = APP_DIR.parent
+REPO_DIR = APP_DIR.parent
 
 # Row-limited download limit
 MAX_DOWNLOAD_LIMIT = 500000
@@ -23,6 +23,7 @@ DOWNLOAD_TIMEOUT_MIN_LIMIT = 10
 
 # Default timeout for SQL statements in Django
 DEFAULT_DB_TIMEOUT_IN_SECONDS = int(os.environ.get("DEFAULT_DB_TIMEOUT_IN_SECONDS", 0))
+DOWNLOAD_DB_TIMEOUT_IN_HOURS = 4
 CONNECTION_MAX_SECONDS = 10
 
 API_MAX_DATE = "2024-09-30"  # End of FY2024
@@ -36,7 +37,8 @@ API_SEARCH_MIN_DATE = "2007-10-01"  # Beginning of FY2008
 SECRET_KEY = get_random_string()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+# Defaults to False, unless DJANGO_DEBUG env var is set to a truthy value
+DEBUG = os.environ.get("DJANGO_DEBUG", "").lower() in ["true", "1", "yes"]
 
 HOST = "localhost:3000"
 ALLOWED_HOSTS = ["*"]
@@ -55,9 +57,9 @@ if not USASPENDING_AWS_REGION:
     USASPENDING_AWS_REGION = os.environ.get("USASPENDING_AWS_REGION")
 
 # AWS locations for CSV files
-CSV_LOCAL_PATH = str(BASE_DIR / "csv_downloads") + "/"
+CSV_LOCAL_PATH = str(REPO_DIR / "csv_downloads") + "/"
 DOWNLOAD_ENV = ""
-BULK_DOWNLOAD_LOCAL_PATH = str(BASE_DIR / "bulk_downloads") + "/"
+BULK_DOWNLOAD_LOCAL_PATH = str(REPO_DIR / "bulk_downloads") + "/"
 
 BULK_DOWNLOAD_S3_BUCKET_NAME = ""
 BULK_DOWNLOAD_S3_REDIRECT_DIR = "generated_downloads"
@@ -65,42 +67,79 @@ BULK_DOWNLOAD_SQS_QUEUE_NAME = ""
 MONTHLY_DOWNLOAD_S3_BUCKET_NAME = ""
 MONTHLY_DOWNLOAD_S3_REDIRECT_DIR = "award_data_archive"
 BROKER_AGENCY_BUCKET_NAME = ""
+
+############################################################
+# Note 2020/02/21
+# FPDS_BUCKET_NAME and DELETED_TRANSACTIONS_S3_BUCKET_NAME are used in different
+#  places with the same string value in deployed envs
+# Merging together into a new variable: DELETED_TRANSACTION_JOURNAL_FILES
+# After the new variable reaches master, work with OPS to discard old variables
 FPDS_BUCKET_NAME = ""
+DELETED_TRANSACTIONS_S3_BUCKET_NAME = ""
+DELETED_TRANSACTION_JOURNAL_FILES = ""
+
 if not FPDS_BUCKET_NAME:
     FPDS_BUCKET_NAME = os.environ.get("FPDS_BUCKET_NAME")
-DELETED_TRANSACTIONS_S3_BUCKET_NAME = ""
 if not DELETED_TRANSACTIONS_S3_BUCKET_NAME:
     DELETED_TRANSACTIONS_S3_BUCKET_NAME = os.environ.get("DELETED_TRANSACTIONS_S3_BUCKET_NAME")
+if not DELETED_TRANSACTION_JOURNAL_FILES:
+    DELETED_TRANSACTION_JOURNAL_FILES = (
+        os.environ.get("DELETED_TRANSACTION_JOURNAL_FILES") or FPDS_BUCKET_NAME or DELETED_TRANSACTIONS_S3_BUCKET_NAME
+    )
+
+############################################################
+
 STATE_DATA_BUCKET = ""
 if not STATE_DATA_BUCKET:
     STATE_DATA_BUCKET = os.environ.get("STATE_DATA_BUCKET")
 
-DATA_DICTIONARY_DOWNLOAD_URL = "https://files{}.usaspending.gov/docs/Data_Dictionary_Crosswalk.xlsx".format(
-    "-nonprod" if DOWNLOAD_ENV != "production" else ""
-)
+# Download URLs
+FILES_SERVER_BASE_URL = ""
+SERVER_BASE_URL = ""
+
+if not FILES_SERVER_BASE_URL:
+    FILES_SERVER_BASE_URL = os.environ.get(
+        "FILES_SERVER_BASE_URL",
+        # This default value can be removed after DTI migration is complete
+        f"https://files{'-nonprod' if DOWNLOAD_ENV != 'production' else ''}.usaspending.gov",
+    )
+    SERVER_BASE_URL = FILES_SERVER_BASE_URL[FILES_SERVER_BASE_URL.find(".") + 1 :]
+
+AGENCY_DOWNLOAD_URL = f"{FILES_SERVER_BASE_URL}/reference_data/agency_codes.csv"
+DATA_DICTIONARY_DOWNLOAD_URL = f"{FILES_SERVER_BASE_URL}/docs/Data_Dictionary_Crosswalk.xlsx"
+
+# Local download files
 IDV_DOWNLOAD_README_FILE_PATH = str(APP_DIR / "data" / "idv_download_readme.txt")
 ASSISTANCE_DOWNLOAD_README_FILE_PATH = str(APP_DIR / "data" / "AssistanceSummary_download_readme.txt")
 CONTRACT_DOWNLOAD_README_FILE_PATH = str(APP_DIR / "data" / "ContractSummary_download_readme.txt")
-AGENCY_DOWNLOAD_URL = "https://files{}.usaspending.gov/reference_data/agency_codes.csv".format(
-    "-nonprod" if DOWNLOAD_ENV != "production" else ""
-)
+COVID19_DOWNLOAD_README_FILE_PATH = str(APP_DIR / "data" / "COVID-19_download_readme.txt")
+COVID19_DOWNLOAD_FILENAME_PREFIX = "COVID-19_Profile"
 
 # Elasticsearch
 ES_HOSTNAME = ""
 if not ES_HOSTNAME:
     ES_HOSTNAME = os.environ.get("ES_HOSTNAME")
-ES_TRANSACTIONS_ETL_VIEW_NAME = "transaction_delta_view"
-ES_TRANSACTIONS_MAX_RESULT_WINDOW = 50000
-ES_TRANSACTIONS_NAME_SUFFIX = "transactions"
-ES_TRANSACTIONS_QUERY_ALIAS_PREFIX = "transaction-query"
-ES_TRANSACTIONS_WRITE_ALIAS = "transaction-load-alias"
 ES_AWARDS_ETL_VIEW_NAME = "award_delta_view"
 ES_AWARDS_MAX_RESULT_WINDOW = 50000
 ES_AWARDS_NAME_SUFFIX = "awards"
 ES_AWARDS_QUERY_ALIAS_PREFIX = "award-query"
 ES_AWARDS_WRITE_ALIAS = "award-load-alias"
-ES_TIMEOUT = 30
+ES_COVID19_FABA_ETL_VIEW_NAME = "covid19_faba_view"
+ES_COVID19_FABA_MAX_RESULT_WINDOW = 50000
+ES_COVID19_FABA_NAME_SUFFIX = "covid19-faba"
+ES_COVID19_FABA_QUERY_ALIAS_PREFIX = "covid19-faba-query"
+ES_COVID19_FABA_WRITE_ALIAS = "covid19-faba-load-alias"
+ES_TRANSACTIONS_ETL_VIEW_NAME = "transaction_delta_view"
+ES_TRANSACTIONS_MAX_RESULT_WINDOW = 50000
+ES_TRANSACTIONS_NAME_SUFFIX = "transactions"
+ES_TRANSACTIONS_QUERY_ALIAS_PREFIX = "transaction-query"
+ES_TRANSACTIONS_WRITE_ALIAS = "transaction-load-alias"
+ES_TIMEOUT = 90
 ES_REPOSITORY = ""
+ES_ROUTING_FIELD = "recipient_agg_key"
+
+# Grants API
+GRANTS_API_KEY = os.environ.get("GRANTS_API_KEY")
 
 # Application definition
 INSTALLED_APPS = [
@@ -116,21 +155,24 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "rest_framework_tracking",
-    "usaspending_api.common",
-    "usaspending_api.etl",
-    "usaspending_api.references",
-    "usaspending_api.awards",
     "usaspending_api.accounts",
-    "usaspending_api.submissions",
-    "usaspending_api.financial_activities",
+    "usaspending_api.agency",
     "usaspending_api.api_docs",
+    "usaspending_api.awards",
     "usaspending_api.broker",
-    "usaspending_api.database_scripts.job_archive",
-    "usaspending_api.download",
     "usaspending_api.bulk_download",
+    "usaspending_api.common",
+    "usaspending_api.database_scripts.job_archive",
+    "usaspending_api.disaster",
+    "usaspending_api.download",
+    "usaspending_api.etl",
+    "usaspending_api.financial_activities",
     "usaspending_api.recipient",
-    "usaspending_api.transactions",
+    "usaspending_api.references",
+    "usaspending_api.reporting",
     "usaspending_api.search",
+    "usaspending_api.submissions",
+    "usaspending_api.transactions",
     "django_spaghetti",
     "simple_history",
     "ddtrace.contrib.django",  # Datadog APM tracing
@@ -168,6 +210,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
     "usaspending_api.common.logging.LoggingMiddleware",
+    "usaspending_api.common.datadog.add_headers",
 ]
 
 ROOT_URLCONF = "usaspending_api.urls"
@@ -264,6 +307,7 @@ REST_FRAMEWORK = {
         "usaspending_api.common.renderers.DocumentAPIRenderer",
         "usaspending_api.common.renderers.BrowsableAPIRendererWithoutForms",
     ),
+    "EXCEPTION_HANDLER": "usaspending_api.common.custom_exception_handler.custom_exception_handler",
 }
 
 # Internationalization
@@ -331,6 +375,15 @@ LOGGING = {
     },
 }
 
+if DEBUG:
+    # make all loggers use the console when in debug
+    for logger in LOGGING["loggers"]:
+        if "console" not in LOGGING["loggers"][logger]["handlers"]:
+            LOGGING["loggers"][logger]["handlers"] += ["console"]
+
+    LOGGING["handlers"]["console"]["level"] = "DEBUG"
+    LOGGING["loggers"]["django.db.backends"] = {"handlers": ["console"], "level": "DEBUG"}
+
 
 # If caches added or renamed, edit clear_caches in usaspending_api/etl/helpers.py
 CACHES = {
@@ -377,3 +430,7 @@ SPAGHETTI_SAUCE = {
     "exclude": {},
     "show_proxy": False,
 }
+
+SESSION_COOKIE_SECURE = True
+
+CSRF_COOKIE_SECURE = True

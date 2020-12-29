@@ -1,7 +1,5 @@
 import copy
 
-
-from datetime import datetime
 from sys import maxsize
 from django.conf import settings
 from django.db.models import F
@@ -10,8 +8,8 @@ from rest_framework.views import APIView
 
 import logging
 from usaspending_api.awards.models import Award
+from usaspending_api.references.models import Agency
 from usaspending_api.awards.v2.filters.filter_helpers import add_date_range_comparison_types
-from usaspending_api.awards.v2.filters.matview_filters import matview_search_filter_determine_award_matview_model
 from usaspending_api.awards.v2.filters.sub_award import subaward_filter
 from usaspending_api.awards.v2.lookups.lookups import (
     assistance_type_mapping,
@@ -22,12 +20,6 @@ from usaspending_api.awards.v2.lookups.lookups import (
     loan_type_mapping,
     non_loan_assistance_type_mapping,
     procurement_type_mapping,
-)
-from usaspending_api.awards.v2.lookups.matview_lookups import (
-    award_contracts_mapping,
-    award_idv_mapping,
-    loan_award_mapping,
-    non_loan_assistance_award_mapping,
 )
 from usaspending_api.awards.v2.lookups.elasticsearch_lookups import (
     contracts_mapping,
@@ -45,45 +37,29 @@ from usaspending_api.recipient.v2.lookups import SPECIAL_CASES
 
 from usaspending_api.common.api_versioning import api_transformations, API_TRANSFORM_FUNCTIONS
 from usaspending_api.common.cache_decorator import cache_response
-from usaspending_api.common.experimental_api_flags import is_experimental_elasticsearch_api
 from usaspending_api.common.helpers.api_helper import raise_if_award_types_not_valid_subset, raise_if_sort_key_not_valid
 from usaspending_api.common.helpers.sql_helpers import execute_sql_to_ordered_dictionary
 from usaspending_api.common.query_with_filters import QueryWithFilters
-from usaspending_api.common.helpers.generic_helper import get_time_period_message
-from usaspending_api.common.validator.award_filter import AWARD_FILTER
+from usaspending_api.common.helpers.generic_helper import get_generic_filters_message
+from usaspending_api.common.validator.award_filter import AWARD_FILTER_NO_RECIPIENT_ID
 from usaspending_api.common.validator.pagination import PAGINATION
 from usaspending_api.common.validator.tinyshield import TinyShield
-from usaspending_api.common.recipient_lookups import annotate_recipient_id, annotate_prime_award_recipient_id
+from usaspending_api.common.recipient_lookups import annotate_prime_award_recipient_id
+from usaspending_api.common.exceptions import UnprocessableEntityException
+from usaspending_api.submissions.models import SubmissionAttributes
 
-logger = logging.getLogger("console")
+logger = logging.getLogger(__name__)
 
 GLOBAL_MAP = {
     "award": {
-        "minimum_db_fields": {"award_id", "piid", "fain", "uri", "type"},
-        "api_to_db_mapping_list": [
-            award_contracts_mapping,
-            award_idv_mapping,
-            loan_award_mapping,
-            non_loan_assistance_award_mapping,
-        ],
         "award_semaphore": "type",
-        "award_id_fields": ["piid", "fain", "uri"],
         "internal_id_fields": {"internal_id": "award_id"},
-        "generated_award_field": ("generated_internal_id", "internal_id"),
-        "type_code_to_field_map": {
-            **{award_type: award_contracts_mapping for award_type in contract_type_mapping},
-            **{award_type: award_idv_mapping for award_type in idv_type_mapping},
-            **{award_type: loan_award_mapping for award_type in loan_type_mapping},
-            **{award_type: non_loan_assistance_award_mapping for award_type in non_loan_assistance_type_mapping},
-        },
         "elasticsearch_type_code_to_field_map": {
             **{award_type: CONTRACT_SOURCE_LOOKUP for award_type in contract_type_mapping},
             **{award_type: IDV_SOURCE_LOOKUP for award_type in idv_type_mapping},
             **{award_type: LOAN_SOURCE_LOOKUP for award_type in loan_type_mapping},
             **{award_type: NON_LOAN_ASST_SOURCE_LOOKUP for award_type in non_loan_assistance_type_mapping},
         },
-        "annotations": {"_recipient_id": annotate_recipient_id},
-        "filter_queryset_func": matview_search_filter_determine_award_matview_model,
     },
     "subaward": {
         "minimum_db_fields": {"subaward_number", "piid", "fain", "award_type", "award_id"},
@@ -110,6 +86,7 @@ class SpendingByAwardVisualizationViewSet(APIView):
     @cache_response()
     def post(self, request):
         """Return all awards matching the provided filters and limits"""
+        self.original_filters = request.data.get("filters")
         json_request = self.validate_request_data(request.data)
         self.is_subaward = json_request["subawards"]
         self.constants = GLOBAL_MAP["subaward"] if self.is_subaward else GLOBAL_MAP["award"]
@@ -125,19 +102,20 @@ class SpendingByAwardVisualizationViewSet(APIView):
             "sort_order": json_request["order"],
             "upper_bound": json_request["page"] * json_request["limit"] + 1,
         }
-        self.elasticsearch = is_experimental_elasticsearch_api(request)
 
         if self.if_no_intersection():  # Like an exception, but API response is a HTTP 200 with a JSON payload
             return Response(self.populate_response(results=[], has_next=False))
+
         raise_if_award_types_not_valid_subset(self.filters["award_type_codes"], self.is_subaward)
         raise_if_sort_key_not_valid(self.pagination["sort_key"], self.fields, self.is_subaward)
 
-        if self.elasticsearch and not self.is_subaward:
+        if self.is_subaward:
+            response = Response(self.create_response_for_subawards(self.construct_queryset()))
+        else:
             self.last_record_unique_id = json_request.get("last_record_unique_id")
             self.last_record_sort_value = json_request.get("last_record_sort_value")
-            logger.info("Using experimental Elasticsearch functionality for 'spending_by_award'")
-            return Response(self.construct_es_response(self.query_elasticsearch()))
-        return Response(self.create_response(self.construct_queryset()))
+            response = Response(self.construct_es_response_for_prime_awards(self.query_elasticsearch()))
+        return response
 
     @staticmethod
     def validate_request_data(request_data):
@@ -174,7 +152,7 @@ class SpendingByAwardVisualizationViewSet(APIView):
                 "allow_nulls": True,
             },
         ]
-        models.extend(copy.deepcopy(AWARD_FILTER))
+        models.extend(copy.deepcopy(AWARD_FILTER_NO_RECIPIENT_ID))
         models.extend(copy.deepcopy(PAGINATION))
         for m in models:
             if m["name"] in ("award_type_codes", "fields"):
@@ -194,9 +172,10 @@ class SpendingByAwardVisualizationViewSet(APIView):
         queryset = self.custom_queryset_order_by(queryset, sort_by_fields, self.pagination["sort_order"])
         return queryset.values(*list(database_fields))[self.pagination["lower_bound"] : self.pagination["upper_bound"]]
 
-    def create_response(self, queryset):
+    def create_response_for_subawards(self, queryset):
         results = []
-        for record in queryset[: self.pagination["limit"]]:
+        rows = list(queryset)
+        for record in rows[: self.pagination["limit"]]:
             row = {k: record[v] for k, v in self.constants["internal_id_fields"].items()}
 
             for field in self.fields:
@@ -213,7 +192,7 @@ class SpendingByAwardVisualizationViewSet(APIView):
 
         results = self.add_award_generated_id_field(results)
 
-        return self.populate_response(results=results, has_next=len(queryset) > self.pagination["limit"])
+        return self.populate_response(results=results, has_next=len(rows) > self.pagination["limit"])
 
     def add_award_generated_id_field(self, records):
         """Obtain the generated_unique_award_id and add to response"""
@@ -228,20 +207,11 @@ class SpendingByAwardVisualizationViewSet(APIView):
     def get_sort_by_fields(self):
         if self.pagination["sort_key"] == "Award ID":
             sort_by_fields = self.constants["award_id_fields"]
-        elif self.is_subaward:
+        else:
             if set(self.filters["award_type_codes"]) <= set(procurement_type_mapping):
                 sort_by_fields = [contract_subaward_mapping[self.pagination["sort_key"]]]
             elif set(self.filters["award_type_codes"]) <= set(assistance_type_mapping):
                 sort_by_fields = [grant_subaward_mapping[self.pagination["sort_key"]]]
-        else:
-            if set(self.filters["award_type_codes"]) <= set(contract_type_mapping):
-                sort_by_fields = [award_contracts_mapping[self.pagination["sort_key"]]]
-            elif set(self.filters["award_type_codes"]) <= set(loan_type_mapping):
-                sort_by_fields = [loan_award_mapping[self.pagination["sort_key"]]]
-            elif set(self.filters["award_type_codes"]) <= set(idv_type_mapping):
-                sort_by_fields = [award_idv_mapping[self.pagination["sort_key"]]]
-            elif set(self.filters["award_type_codes"]) <= set(non_loan_assistance_type_mapping):
-                sort_by_fields = [non_loan_assistance_award_mapping[self.pagination["sort_key"]]]
 
         return sort_by_fields
 
@@ -289,66 +259,33 @@ class SpendingByAwardVisualizationViewSet(APIView):
             "limit": self.pagination["limit"],
             "results": results,
             "page_metadata": {"page": self.pagination["page"], "hasNext": has_next},
-            "messages": [get_time_period_message()],
+            "messages": get_generic_filters_message(
+                self.original_filters.keys(), [elem["name"] for elem in AWARD_FILTER_NO_RECIPIENT_ID]
+            ),
         }
-
-    def date_to_epoch_millis(self, date):
-        if "DATE" in self.pagination["sort_key"].upper():
-            if date is not None and type(date) != "str":
-                date = date.strftime("%Y-%m-%d")
-            d = datetime.strptime(date, "%Y-%m-%d")
-            date = int(d.timestamp() * 1000)
-        return date
 
     def query_elasticsearch(self) -> list:
         filter_query = QueryWithFilters.generate_awards_elasticsearch_query(self.filters)
         sort_field = self.get_elastic_sort_by_fields()
         sorts = [{field: self.pagination["sort_order"]} for field in sort_field]
         record_num = (self.pagination["page"] - 1) * self.pagination["limit"]
-
+        # random page jumping was removed due to performance concerns
         if (self.last_record_sort_value is None and self.last_record_unique_id is not None) or (
             self.last_record_sort_value is not None and self.last_record_unique_id is None
         ):
             # malformed request
             raise Exception(
-                "Using search_after functionality in Elasticsearch requires both last_record_sort_value and last_record_unique_id."
+                "Using search_after functionality in Elasticsearch requires both"
+                " last_record_sort_value and last_record_unique_id."
             )
-
-        # API request is asking to jump to a random, non-sequential page of results
         if record_num >= settings.ES_AWARDS_MAX_RESULT_WINDOW and (
             self.last_record_unique_id is None and self.last_record_sort_value is None
         ):
-            logger.warning(
-                "WARNING: Jumping to page {page} with page size {limit}. First record number: {record}. Retrieving records past {es_limit} records will have a performance hit when using Elasticsearch".format(
-                    page=self.pagination["page"],
-                    limit=self.pagination["limit"],
-                    record=self.pagination["lower_bound"],
-                    es_limit=settings.ES_AWARDS_MAX_RESULT_WINDOW,
-                )
+            raise UnprocessableEntityException(
+                f"Page #{self.pagination['page']} with limit {self.pagination['limit']} is over the maximum result"
+                f" limit {settings.ES_AWARDS_MAX_RESULT_WINDOW}. Please provide the 'last_record_sort_value' and"
+                " 'last_record_unique_id' to paginate sequentially."
             )
-            sort_by_fields = self.get_sort_by_fields()
-            sort_by_fields.append("award_id")
-            database_fields = self.get_database_fields()
-            base_queryset = self.constants["filter_queryset_func"](self.filters)
-            queryset = self.annotate_queryset(base_queryset)
-            queryset = self.custom_queryset_order_by(queryset, sort_by_fields, self.pagination["sort_order"])
-            queryset = queryset.values(*list(database_fields))[record_num - 1 : record_num]
-
-            if len(queryset) != 1:
-                return {}
-            results = [
-                self.date_to_epoch_millis(queryset[0].get(self.get_sort_by_fields()[0])),
-                queryset[0].get("award_id"),
-            ]
-            search = (
-                AwardSearch()
-                .filter(filter_query)
-                .sort(*sorts)
-                .extra(search_after=[*results])[: self.pagination["limit"] + 1]
-            )
-            response = search.handle_execute()
-            return response
-
         # Search_after values are provided in the API request - use search after
         if self.last_record_sort_value is not None and self.last_record_unique_id is not None:
             search = (
@@ -367,7 +304,18 @@ class SpendingByAwardVisualizationViewSet(APIView):
 
         return response
 
-    def construct_es_response(self, response) -> dict:
+    # For an unknown reason, ES tends to return the awarding agency toptier codes as integers or floats, instead of as
+    # text. This function casts the code back to a string and appends any leading zeroes that were lost.
+    def get_agency_database_id(self, code):
+        if len(str(int(code))) < 3:
+            code = "{zeroes}{code}".format(zeroes=("0" * (3 - len(str(int(code))))), code=int(code))
+        agency_id = Agency.objects.filter(toptier_agency__toptier_code=code, toptier_flag=True).first()
+        submission = SubmissionAttributes.objects.filter(toptier_code=code).first()
+        if submission is None or agency_id is None:
+            return None
+        return agency_id.id
+
+    def construct_es_response_for_prime_awards(self, response) -> dict:
         results = []
         for res in response:
             hit = res.to_dict()
@@ -382,6 +330,8 @@ class SpendingByAwardVisualizationViewSet(APIView):
                         field
                     )
                 )
+                if "Awarding Agency" in self.fields:
+                    row["agency_code"] = hit["awarding_toptier_agency_code"]
 
             row["internal_id"] = int(row["internal_id"])
             if row.get("Loan Value"):
@@ -390,6 +340,9 @@ class SpendingByAwardVisualizationViewSet(APIView):
                 row["Subsidy Cost"] = float(row["Subsidy Cost"])
             if row.get("Award Amount"):
                 row["Award Amount"] = float(row["Award Amount"])
+            if row.get("Awarding Agency"):
+                code = row.pop("agency_code")
+                row["awarding_agency_id"] = self.get_agency_database_id(code)
             row["generated_internal_id"] = hit["generated_unique_award_id"]
             row["recipient_id"] = hit.get("recipient_unique_id")
             row["parent_recipient_unique_id"] = hit.get("parent_recipient_unique_id")
@@ -408,7 +361,7 @@ class SpendingByAwardVisualizationViewSet(APIView):
             offset = 2
         else:
             has_next = (
-                response.hits.total - (self.pagination["page"] - 1) * self.pagination["limit"]
+                response.hits.total.value - (self.pagination["page"] - 1) * self.pagination["limit"]
                 > self.pagination["limit"]
             )
 
@@ -425,7 +378,11 @@ class SpendingByAwardVisualizationViewSet(APIView):
                 "last_record_unique_id": last_record_unique_id,
                 "last_record_sort_value": str(last_record_sort_value),
             },
-            "messages": [get_time_period_message()],
+            "messages": [
+                get_generic_filters_message(
+                    self.original_filters.keys(), [elem["name"] for elem in AWARD_FILTER_NO_RECIPIENT_ID]
+                )
+            ],
         }
 
     def append_recipient_hash_level(self, result) -> dict:

@@ -10,8 +10,15 @@ This endpoints supports the advanced search page and allow for complex filtering
 This endpoint takes award filters and fields, and returns the fields of the filtered awards.
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `filters` (required, FilterObject)
+        + `filters` (required, AdvancedFilterObject)
         + `fields` (required, SpendingByAwardFields)
         + `limit` (optional, number)
             How many results are returned. If no limit is specified, the limit is set to 10.
@@ -82,6 +89,7 @@ List of table columns
 - `Funding Agency`
 - `Funding Sub Agency`
 
+
 ## SpendingByAwardResponse (object)
 + `internal_id` (required, number)
 + `Award Amount` (optional, number)
@@ -89,6 +97,7 @@ List of table columns
 + `Award Type` (optional, string, nullable)
 + `Awarding Agency Code` (optional, string, nullable)
 + `Awarding Agency` (optional, string, nullable)
++ `awarding_agency_id` (optional, number, nullable)
 + `Awarding Sub Agency Code` (optional, string, nullable)
 + `Awarding Sub Agency` (optional, string, nullable)
 + `Base Obligation Date` (optional, string)
@@ -107,7 +116,7 @@ List of table columns
 + `Last Date to Order` (optional, string, nullable)
     Procurement IDVs only
 + `Last Modified Date` (optional, string)
-+ `Loan Value` (optional, number, nullable)
++ `Loan Value` (optional, number)
     Assistance awards only
 + `Period of Performance Current End Date` (optional, string, nullable)
 + `Period of Performance Start Date` (optional, string)
@@ -115,6 +124,9 @@ List of table columns
 + `Place of Performance Country Code` (optional, string, nullable)
 + `Place of Performance State Code` (optional, number, nullable)
 + `Place of Performance Zip5` (optional, number)
++ `COVID-19 Outlays` (optional, number)
++ `COVID-19 Obligations` (optional, number)
++ `def_codes` (optional, array[string], fixed-type)
 + `Prime Award ID` (optional, string, nullable)
     Sub-Awards only, returns the ID (piid/fain/uri) of the prime award.
 + `Prime Recipient Name` (optional, string, nullable)
@@ -142,7 +154,7 @@ List of table columns
     Sub-Awards only
 + `Sub-Awardee Name` (optional, string)
     Sub-Awards only
-+ `Subsidy Cost` (optional, number, nullable)
++ `Subsidy Cost` (optional, number)
     Assistance awards only
 
 ## PageMetadataObject (object)
@@ -152,7 +164,7 @@ List of table columns
 + `last_record_sort_value` (optional, string)
 
 ## Filter Objects
-### FilterObject (object)
+### AdvancedFilterObject (object)
 + `keywords` : `transport` (optional, array[string])
 + `time_period` (optional, array[TimePeriodObject], fixed-type)
 + `place_of_performance_scope` (optional, enum[string])
@@ -162,8 +174,6 @@ List of table columns
 + `place_of_performance_locations` (optional, array[LocationObject], fixed-type)
 + `agencies` (optional, array[AgencyObject], fixed-type)
 + `recipient_search_text`: `Hampton` (optional, array[string])
-+ `recipient_id` (optional, string)
-    A hash of recipient DUNS, name, and level. A unique identifier for recipients, used for profile page urls.
 + `recipient_scope` (optional, enum[string])
     + Members
         + `domestic`
@@ -175,14 +185,17 @@ List of table columns
     Award IDs surrounded by double quotes (e.g. `"SPE30018FLJFN"`) will perform exact matches as opposed to the default, fuzzier full text matches.  Useful for Award IDs that contain spaces or other word delimiters.
 + `award_amounts` (optional, array[AwardAmounts], fixed-type)
 + `program_numbers`: `10.331` (optional, array[string])
-+ `naics_codes`: `311812` (optional, array[string])
-+ `psc_codes`: `8940`, `8910` (optional, array[string])
++ `naics_codes` (optional, NAICSCodeObject)
++ `tas_codes` (optional, array[TASCodeObject], fixed-type)
++ `psc_codes` (optional, enum[PSCCodeObject, array[string]])
+    Supports new PSCCodeObject or legacy array of codes.
 + `contract_pricing_type_codes`: `J` (optional, array[string])
 + `set_aside_type_codes`: `NONE` (optional, array[string])
 + `extent_competed_type_codes`: `A` (optional, array[string])
-+ `tas_codes` (optional, array[TASCodeObject], fixed-type)
++ `treasury_account_components` (optional, array[TreasuryAccountComponentsObject], fixed-type)
 + `object_class` (optional, array[string])
 + `program_activity` (optional, array[number])
++ `def_codes` (optional, array[DEFC], fixed-type)
 
 ### TimePeriodObject (object)
 + `start_date`: `2017-10-01` (required, string)
@@ -213,13 +226,28 @@ List of table columns
     + Members
         + `toptier`
         + `subtier`
-+ `name`: `Department of Defense` (required, string)
++ `name`: `Office of Inspector General` (required, string)
++ `toptier_name`: `Department of the Treasury` (optional, string)
+    Only applicable when `tier` is `subtier`.  Ignored when `tier` is `toptier`.  Provides a means by which to scope subtiers with common names to a
+    specific toptier.  For example, several agencies have an "Office of Inspector General".  If not provided, subtiers may span more than one toptier.
 
 ### AwardAmounts (object)
 + `lower_bound` (optional, number)
 + `upper_bound`: 1000000 (optional, number)
 
+### NAICSCodeObject (object)
++ `require`: [`33`] (optional, array[string], fixed-type)
++ `exclude`: [`3333`] (optional, array[string], fixed-type)
+
+### PSCCodeObject (object)
++ `require`: [[`Service`, `B`, `B5`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`Service`, `B`, `B5`, `B502`]] (optional, array[array[string]], fixed-type)
+
 ### TASCodeObject (object)
++ `require`: [[`091`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`091`, `091-0800`]] (optional, array[array[string]], fixed-type)
+
+### TreasuryAccountComponentsObject (object)
 + `ata` (optional, string, nullable)
     Allocation Transfer Agency Identifier - three characters
 + `aid` (required, string)
@@ -267,3 +295,29 @@ List of filterable award types
 - `IDV_C`
 - `IDV_D`
 - `IDV_E`
+
+## DEFC (enum[string])
+List of Disaster Emergency Fund (DEF) Codes (DEFC) defined by legislation at the time of writing
+
+### Members
++ `A`
++ `B`
++ `C`
++ `D`
++ `E`
++ `F`
++ `G`
++ `H`
++ `I`
++ `J`
++ `K`
++ `L`
++ `M`
++ `N`
++ `O`
++ `P`
++ `Q`
++ `R`
++ `S`
++ `T`
++ `9`

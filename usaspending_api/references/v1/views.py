@@ -18,7 +18,7 @@ class FilterEndpoint(APIView):
 
     def post(self, request, format=None):
         """
-        Return the hash for a json
+        Return the hash for a received filters object
         """
         # get json
         # request.body is used because we want unicode as hash input
@@ -27,6 +27,8 @@ class FilterEndpoint(APIView):
         m = hashlib.md5()
         m.update(json_req)
         hash = m.hexdigest().encode("utf8")
+        if len(str(hash)) > 2 and str(hash)[:2] == "b'":
+            hash = str(hash)[2:-1]
         # check for hash in db, store if not in db
         try:
             fh = FilterHash.objects.get(hash=hash)
@@ -53,13 +55,14 @@ class HashEndpoint(APIView):
 
     def post(self, request, format=None):
         """
-        Return the hash for a json
+        Return the stored filter object corresponding to the received hash
         """
         # get hash
         body_unicode = request.body.decode("utf-8")
         body = json.loads(body_unicode)
         hash = body["hash"]
-        # check for hash in db, if not in db
+
+        # check for hash in db
         try:
             fh = FilterHash.objects.get(hash=hash)
             # return filter json

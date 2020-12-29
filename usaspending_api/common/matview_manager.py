@@ -1,24 +1,32 @@
 from collections import OrderedDict
 from django.conf import settings
 
+from usaspending_api.awards.models import CovidFinancialAccountMatview
 from usaspending_api.search.models import TASAutocompleteMatview
 
 import usaspending_api.search.models as mv
 
-DEFAULT_MATIVEW_DIR = settings.BASE_DIR.parent / "matviews"
+DEFAULT_MATIVEW_DIR = settings.REPO_DIR.parent / "matviews"
+DEFAULT_CHUNKED_MATIVEW_DIR = settings.REPO_DIR.parent / "chunked_matviews"
 DEPENDENCY_FILEPATH = settings.APP_DIR / "database_scripts" / "matviews" / "functions_and_enums.sql"
-JSON_DIR = settings.APP_DIR / "database_scripts" / "matview_sql_generator"
+JSON_DIR = settings.APP_DIR / "database_scripts" / "matview_generator"
 MATVIEW_GENERATOR_FILE = settings.APP_DIR / "database_scripts" / "matview_generator" / "matview_sql_generator.py"
-OVERLAY_VIEWS = [settings.APP_DIR / "database_scripts" / "matviews" / "vw_award_search.sql"]
+CHUNKED_MATVIEW_GENERATOR_FILE = (
+    settings.APP_DIR / "database_scripts" / "matview_generator" / "chunked_matview_sql_generator.py"
+)
+OVERLAY_VIEWS = [
+    settings.APP_DIR / "database_scripts" / "matviews" / "vw_award_search.sql",
+    settings.APP_DIR / "database_scripts" / "matviews" / "vw_es_award_search.sql",
+]
 DROP_OLD_MATVIEWS = settings.APP_DIR / "database_scripts" / "matviews" / "drop_old_matviews.sql"
 MATERIALIZED_VIEWS = OrderedDict(
     [
         (
-            "mv_award_summary",
+            "mv_agency_autocomplete",
             {
-                "model": mv.AwardSummaryMatview,
-                "json_filepath": str(JSON_DIR / "mv_award_summary.json"),
-                "sql_filename": "mv_award_summary.sql",
+                "model": mv.AgencyAutocompleteMatview,
+                "json_filepath": str(JSON_DIR / "mv_agency_autocomplete.json"),
+                "sql_filename": "mv_agency_autocomplete.sql",
             },
         ),
         (
@@ -27,6 +35,14 @@ MATERIALIZED_VIEWS = OrderedDict(
                 "model": mv.ContractAwardSearchMatview,
                 "json_filepath": str(JSON_DIR / "mv_contract_award_search.json"),
                 "sql_filename": "mv_contract_award_search.sql",
+            },
+        ),
+        (
+            "mv_covid_financial_account",
+            {
+                "model": CovidFinancialAccountMatview,
+                "json_filepath": str(JSON_DIR / "mv_covid_financial_account.json"),
+                "sql_filename": "mv_covid_financial_account.sql",
             },
         ),
         (
@@ -94,78 +110,6 @@ MATERIALIZED_VIEWS = OrderedDict(
             },
         ),
         (
-            "summary_transaction_fed_acct_view",
-            {
-                "model": mv.SummaryTransactionFedAcctView,
-                "json_filepath": str(JSON_DIR / "summary_transaction_fed_acct_view.json"),
-                "sql_filename": "summary_transaction_fed_acct_view.sql",
-            },
-        ),
-        (
-            "summary_transaction_geo_view",
-            {
-                "model": mv.SummaryTransactionGeoView,
-                "json_filepath": str(JSON_DIR / "summary_transaction_geo_view.json"),
-                "sql_filename": "summary_transaction_geo_view.sql",
-            },
-        ),
-        (
-            "summary_transaction_month_view",
-            {
-                "model": mv.SummaryTransactionMonthView,
-                "json_filepath": str(JSON_DIR / "summary_transaction_month_view.json"),
-                "sql_filename": "summary_transaction_month_view.sql",
-            },
-        ),
-        (
-            "summary_transaction_recipient_view",
-            {
-                "model": mv.SummaryTransactionRecipientView,
-                "json_filepath": str(JSON_DIR / "summary_transaction_recipient_view.json"),
-                "sql_filename": "summary_transaction_recipient_view.sql",
-            },
-        ),
-        (
-            "summary_transaction_view",
-            {
-                "model": mv.SummaryTransactionView,
-                "json_filepath": str(JSON_DIR / "summary_transaction_view.json"),
-                "sql_filename": "summary_transaction_view.sql",
-            },
-        ),
-        (
-            "summary_view",
-            {
-                "model": mv.SummaryView,
-                "json_filepath": str(JSON_DIR / "summary_view.json"),
-                "sql_filename": "summary_view.sql",
-            },
-        ),
-        (
-            "summary_view_cfda_number",
-            {
-                "model": mv.SummaryCfdaNumbersView,
-                "json_filepath": str(JSON_DIR / "summary_view_cfda_number.json"),
-                "sql_filename": "summary_view_cfda_number.sql",
-            },
-        ),
-        (
-            "summary_view_naics_codes",
-            {
-                "model": mv.SummaryNaicsCodesView,
-                "json_filepath": str(JSON_DIR / "summary_view_naics_codes.json"),
-                "sql_filename": "summary_view_naics_codes.sql",
-            },
-        ),
-        (
-            "summary_view_psc_codes",
-            {
-                "model": mv.SummaryPscCodesView,
-                "json_filepath": str(JSON_DIR / "summary_view_psc_codes.json"),
-                "sql_filename": "summary_view_psc_codes.sql",
-            },
-        ),
-        (
             "tas_autocomplete_matview",
             {
                 "model": TASAutocompleteMatview,
@@ -173,6 +117,10 @@ MATERIALIZED_VIEWS = OrderedDict(
                 "sql_filename": "tas_autocomplete_matview.sql",
             },
         ),
+    ]
+)
+CHUNKED_MATERIALIZED_VIEWS = OrderedDict(
+    [
         (
             "universal_transaction_matview",
             {
