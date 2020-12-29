@@ -1,7 +1,8 @@
-import json
 import copy
-
+import json
 import pytest
+
+from datetime import datetime, timezone
 from model_mommy import mommy
 from rest_framework import status
 
@@ -12,14 +13,31 @@ from usaspending_api.financial_activities.models import (
     TreasuryAppropriationAccount,
 )
 from usaspending_api.accounts.models import FederalAccount
-from usaspending_api.references.models import Agency, GTASTotalObligation, ToptierAgency
-
+from usaspending_api.references.models import Agency, GTASSF133Balances, ToptierAgency, ObjectClass
+from usaspending_api.submissions.models import DABSSubmissionWindowSchedule
 
 ENDPOINT_URL = "/api/v2/spending/"
 CONTENT_TYPE = "application/json"
 GLOBAL_MOCK_DICT = [
-    {"model": GTASTotalObligation, "fiscal_year": 1600, "fiscal_quarter": 1, "total_obligation": -10},
-    {"model": SubmissionAttributes, "submission_id": -1, "reporting_fiscal_year": 1600, "reporting_fiscal_quarter": 1},
+    {
+        "model": DABSSubmissionWindowSchedule,
+        "id": 1600031,
+        "period_end_date": datetime(1599, 12, 31, tzinfo=timezone.utc),
+        "submission_fiscal_year": 1600,
+        "submission_fiscal_quarter": 1,
+        "submission_fiscal_month": 3,
+        "submission_reveal_date": datetime(1600, 1, 28, tzinfo=timezone.utc),
+        "is_quarter": True,
+    },
+    {"model": ObjectClass, "id": 1},
+    {"model": GTASSF133Balances, "fiscal_year": 1600, "fiscal_period": 3, "obligations_incurred_total_cpe": -10},
+    {
+        "model": SubmissionAttributes,
+        "submission_id": -1,
+        "reporting_fiscal_year": 1600,
+        "reporting_fiscal_period": 3,
+        "reporting_fiscal_quarter": 1,
+    },
     {
         "model": ToptierAgency,
         "toptier_agency_id": -1,
@@ -74,6 +92,7 @@ GLOBAL_MOCK_DICT = [
         "submission_id": -1,
         "treasury_account_id": -2,
         "obligations_incurred_by_program_object_class_cpe": -1,
+        "object_class_id": 1,
     },
 ]
 
@@ -111,12 +130,23 @@ def test_unreported_data_actual_value_file_b(client):
 @pytest.mark.django_db
 def test_unreported_data_actual_value_file_c(client):
     models_to_mock = [
-        {"model": GTASTotalObligation, "fiscal_year": 1600, "fiscal_quarter": 1, "total_obligation": -10},
+        {
+            "model": DABSSubmissionWindowSchedule,
+            "id": 1600031,
+            "period_end_date": datetime(1599, 12, 31, tzinfo=timezone.utc),
+            "submission_fiscal_year": 1600,
+            "submission_fiscal_quarter": 1,
+            "submission_fiscal_month": 3,
+            "submission_reveal_date": datetime(1600, 1, 28, tzinfo=timezone.utc),
+            "is_quarter": True,
+        },
+        {"model": GTASSF133Balances, "fiscal_year": 1600, "fiscal_period": 3, "obligations_incurred_total_cpe": -10},
         {
             "model": SubmissionAttributes,
             "submission_id": -1,
             "reporting_fiscal_year": 1600,
             "reporting_fiscal_quarter": 1,
+            "reporting_fiscal_period": 3,
         },
         {
             "model": ToptierAgency,
@@ -237,7 +267,7 @@ def test_budget_function_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "budget_function", "filters": {"fy": "2017"}}),
+        data=json.dumps({"type": "budget_function", "filters": {"fy": "2017", "quarter": 1}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -245,7 +275,7 @@ def test_budget_function_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "budget_function": "050"}}),
+        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "quarter": 1, "budget_function": "050"}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -256,7 +286,7 @@ def test_budget_function_filter_success(client):
         data=json.dumps(
             {
                 "type": "federal_account",
-                "filters": {"fy": "2017", "budget_function": "050", "budget_subfunction": "053"},
+                "filters": {"fy": "2017", "quarter": 1, "budget_function": "050", "budget_subfunction": "053"},
             }
         ),
     )
@@ -271,6 +301,7 @@ def test_budget_function_filter_success(client):
                 "type": "program_activity",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "budget_function": "050",
                     "budget_subfunction": "053",
                     "federal_account": 2715,
@@ -289,6 +320,7 @@ def test_budget_function_filter_success(client):
                 "type": "object_class",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "budget_function": "050",
                     "budget_subfunction": "053",
                     "federal_account": 2715,
@@ -308,6 +340,7 @@ def test_budget_function_filter_success(client):
                 "type": "recipient",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "budget_function": "050",
                     "budget_subfunction": "053",
                     "federal_account": 2715,
@@ -328,6 +361,7 @@ def test_budget_function_filter_success(client):
                 "type": "award",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "budget_function": "050",
                     "budget_subfunction": "053",
                     "federal_account": 2715,
@@ -356,7 +390,7 @@ def test_object_class_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "object_class", "filters": {"fy": "2017"}}),
+        data=json.dumps({"type": "object_class", "filters": {"fy": "2017", "quarter": 1}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -364,7 +398,7 @@ def test_object_class_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "object_class": "20"}}),
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "quarter": 1, "object_class": "20"}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -372,7 +406,7 @@ def test_object_class_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "object_class": "20"}}),
+        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "quarter": 1, "object_class": "20"}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -381,7 +415,10 @@ def test_object_class_filter_success(client):
         "/api/v2/spending/",
         content_type="application/json",
         data=json.dumps(
-            {"type": "program_activity", "filters": {"fy": "2017", "object_class": "20", "federal_account": 2358}}
+            {
+                "type": "program_activity",
+                "filters": {"fy": "2017", "quarter": 1, "object_class": "20", "federal_account": 2358},
+            }
         ),
     )
     assert resp.status_code == status.HTTP_200_OK
@@ -393,7 +430,13 @@ def test_object_class_filter_success(client):
         data=json.dumps(
             {
                 "type": "recipient",
-                "filters": {"fy": "2017", "object_class": "20", "federal_account": 2358, "program_activity": 15103},
+                "filters": {
+                    "fy": "2017",
+                    "quarter": 1,
+                    "object_class": "20",
+                    "federal_account": 2358,
+                    "program_activity": 15103,
+                },
             }
         ),
     )
@@ -408,6 +451,7 @@ def test_object_class_filter_success(client):
                 "type": "award",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "object_class": "20",
                     "federal_account": 2358,
                     "program_activity": 15103,
@@ -434,7 +478,7 @@ def test_agency_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "agency", "filters": {"fy": "2017"}}),
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "quarter": 1}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -450,7 +494,7 @@ def test_agency_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017"}}),
+        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "quarter": 1}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -458,7 +502,7 @@ def test_agency_filter_success(client):
     resp = client.post(
         "/api/v2/spending/",
         content_type="application/json",
-        data=json.dumps({"type": "program_activity", "filters": {"fy": "2017", "federal_account": 1500}}),
+        data=json.dumps({"type": "program_activity", "filters": {"fy": "2017", "quarter": 1, "federal_account": 1500}}),
     )
     assert resp.status_code == status.HTTP_200_OK
 
@@ -467,7 +511,10 @@ def test_agency_filter_success(client):
         "/api/v2/spending/",
         content_type="application/json",
         data=json.dumps(
-            {"type": "object_class", "filters": {"fy": "2017", "federal_account": 1500, "program_activity": 12697}}
+            {
+                "type": "object_class",
+                "filters": {"fy": "2017", "quarter": 1, "federal_account": 1500, "program_activity": 12697},
+            }
         ),
     )
     assert resp.status_code == status.HTTP_200_OK
@@ -479,7 +526,13 @@ def test_agency_filter_success(client):
         data=json.dumps(
             {
                 "type": "recipient",
-                "filters": {"fy": "2017", "federal_account": 1500, "program_activity": 12697, "object_class": "40"},
+                "filters": {
+                    "fy": "2017",
+                    "quarter": 1,
+                    "federal_account": 1500,
+                    "program_activity": 12697,
+                    "object_class": "40",
+                },
             }
         ),
     )
@@ -494,6 +547,7 @@ def test_agency_filter_success(client):
                 "type": "award",
                 "filters": {
                     "fy": "2017",
+                    "quarter": 1,
                     "federal_account": 1500,
                     "program_activity": 12697,
                     "object_class": "40",
@@ -519,3 +573,333 @@ def test_agency_failure(client):
         data=json.dumps({"type": "agency", "filters": {"fy": "23", "quarter": "3"}}),
     )
     assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+def test_object_budget_match(client):
+
+    models = copy.deepcopy(GLOBAL_MOCK_DICT)
+    for entry in models:
+        mommy.make(entry.pop("model"), **entry)
+    mommy.make(
+        FinancialAccountsByProgramActivityObjectClass,
+        **{
+            "financial_accounts_by_program_activity_object_class_id": -4,
+            "submission_id": -1,
+            "treasury_account_id": -1,
+            "obligations_incurred_by_program_object_class_cpe": -5,
+            "object_class_id": 1,
+        },
+    )
+
+    json_request = {"type": "budget_function", "filters": {"fy": "1600", "quarter": "1"}}
+
+    response = client.post(path=ENDPOINT_URL, content_type=CONTENT_TYPE, data=json.dumps(json_request))
+
+    assert response.status_code == status.HTTP_200_OK
+
+    json_response_1 = response.json()
+
+    json_request = {"type": "object_class", "filters": {"fy": "1600", "quarter": "1"}}
+
+    response = client.post(path=ENDPOINT_URL, content_type=CONTENT_TYPE, data=json.dumps(json_request))
+    json_response_2 = response.json()
+    assert json_response_1["results"][0]["amount"] == json_response_2["results"][0]["amount"]
+
+
+@pytest.mark.django_db
+def test_period(client):
+
+    # Test for Object Class Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "quarter": 1}}),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "period": 3}}),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Object Class Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "quarter": "3"}}),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "agency", "filters": {"fy": "2017", "period": "9"}}),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Agency Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "quarter": 1}}),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "federal_account", "filters": {"fy": "2017", "period": 3}}),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Federal Account Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "program_activity", "filters": {"fy": "2017", "quarter": 1, "federal_account": 1500}}),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps({"type": "program_activity", "filters": {"fy": "2017", "period": 3, "federal_account": 1500}}),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Program Activity Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "object_class",
+                "filters": {"fy": "2017", "quarter": 1, "federal_account": 1500, "program_activity": 12697},
+            }
+        ),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "object_class",
+                "filters": {"fy": "2017", "period": 3, "federal_account": 1500, "program_activity": 12697},
+            }
+        ),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Recipient Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "recipient",
+                "filters": {
+                    "fy": "2017",
+                    "quarter": 1,
+                    "federal_account": 1500,
+                    "program_activity": 12697,
+                    "object_class": "40",
+                },
+            }
+        ),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "recipient",
+                "filters": {
+                    "fy": "2017",
+                    "period": 3,
+                    "federal_account": 1500,
+                    "program_activity": 12697,
+                    "object_class": "40",
+                },
+            }
+        ),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+    # Test for Award Results
+    resp = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "award",
+                "filters": {
+                    "fy": "2017",
+                    "quarter": 1,
+                    "federal_account": 1500,
+                    "program_activity": 12697,
+                    "object_class": "40",
+                    "recipient": 792917,
+                },
+            }
+        ),
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+    resp2 = client.post(
+        "/api/v2/spending/",
+        content_type="application/json",
+        data=json.dumps(
+            {
+                "type": "award",
+                "filters": {
+                    "fy": "2017",
+                    "period": 3,
+                    "federal_account": 1500,
+                    "program_activity": 12697,
+                    "object_class": "40",
+                    "recipient": 792917,
+                },
+            }
+        ),
+    )
+    assert resp2.status_code == status.HTTP_200_OK
+    assert resp.json() == resp2.json()
+
+
+@pytest.mark.django_db
+def test_unreported_file_c(client):
+    models_to_mock = [
+        {
+            "model": DABSSubmissionWindowSchedule,
+            "id": 1600031,
+            "period_end_date": datetime(1599, 12, 31, tzinfo=timezone.utc),
+            "submission_fiscal_year": 1600,
+            "submission_fiscal_quarter": 1,
+            "submission_fiscal_month": 3,
+            "submission_reveal_date": datetime(1600, 1, 28, tzinfo=timezone.utc),
+            "is_quarter": True,
+        },
+        {"model": GTASSF133Balances, "fiscal_year": 1600, "fiscal_period": 3, "obligations_incurred_total_cpe": -10},
+        {
+            "model": SubmissionAttributes,
+            "submission_id": -1,
+            "reporting_fiscal_year": 1600,
+            "reporting_fiscal_quarter": 1,
+            "reporting_fiscal_period": 3,
+        },
+        {
+            "model": ToptierAgency,
+            "toptier_agency_id": -1,
+            "name": "random_funding_name_1",
+            "toptier_code": "random_funding_code_1",
+        },
+        {
+            "model": ToptierAgency,
+            "toptier_agency_id": -2,
+            "name": "random_funding_name_2",
+            "toptier_code": "random_funding_code_2",
+        },
+        {"model": Agency, "id": -1, "toptier_agency_id": -1, "toptier_flag": True},
+        {"model": Agency, "id": -2, "toptier_agency_id": -2, "toptier_flag": True},
+        {"model": TreasuryAppropriationAccount, "treasury_account_identifier": -1, "funding_toptier_agency_id": -1},
+        {"model": TreasuryAppropriationAccount, "treasury_account_identifier": -2, "funding_toptier_agency_id": -2},
+        {
+            "model": FinancialAccountsByProgramActivityObjectClass,
+            "financial_accounts_by_program_activity_object_class_id": -1,
+            "submission_id": -1,
+            "treasury_account_id": -1,
+            "obligations_incurred_by_program_object_class_cpe": -5,
+        },
+        {
+            "model": FinancialAccountsByProgramActivityObjectClass,
+            "financial_accounts_by_program_activity_object_class_id": -2,
+            "submission_id": -1,
+            "treasury_account_id": -1,
+            "obligations_incurred_by_program_object_class_cpe": -5,
+        },
+        {
+            "model": FinancialAccountsByProgramActivityObjectClass,
+            "financial_accounts_by_program_activity_object_class_id": -3,
+            "submission_id": -1,
+            "treasury_account_id": -1,
+            "obligations_incurred_by_program_object_class_cpe": -5,
+        },
+        {
+            "model": FinancialAccountsByAwards,
+            "financial_accounts_by_awards_id": -1,
+            "submission_id": -1,
+            "award__latest_transaction__assistance_data__awardee_or_recipient_legal": "random_recipient_name_1",
+            "treasury_account_id": -1,
+            "transaction_obligated_amount": -2,
+        },
+        {
+            "model": FinancialAccountsByAwards,
+            "financial_accounts_by_awards_id": -2,
+            "submission_id": -1,
+            "award__latest_transaction__assistance_data__awardee_or_recipient_legal": "random_recipient_name_2",
+            "treasury_account_id": -1,
+            "transaction_obligated_amount": -3,
+        },
+        {
+            "model": FinancialAccountsByAwards,
+            "financial_accounts_by_awards_id": -3,
+            "submission_id": -1,
+            "award__latest_transaction__assistance_data__awardee_or_recipient_legal": "random_recipient_name_1",
+            "treasury_account_id": -2,
+            "transaction_obligated_amount": -5,
+        },
+        {
+            "model": FinancialAccountsByAwards,
+            "financial_accounts_by_awards_id": -4,
+            "submission_id": -1,
+            "award__latest_transaction__contract_data__awardee_or_recipient_legal": "random_recipient_name_1",
+            "treasury_account_id": -1,
+            "transaction_obligated_amount": -7,
+        },
+        {
+            "model": FinancialAccountsByAwards,
+            "financial_accounts_by_awards_id": -5,
+            "submission_id": -1,
+            "award__latest_transaction__contract_data__awardee_or_recipient_legal": "random_recipient_name_4",
+            "treasury_account_id": -2,
+            "transaction_obligated_amount": -11,
+        },
+    ]
+
+    for entry in models_to_mock:
+        mommy.make(entry.pop("model"), **entry)
+
+    json_request = {"type": "recipient", "filters": {"agency": "-1", "fy": "1600", "quarter": "1"}}
+    resp = client.post("/api/v2/spending/", content_type="application/json", data=json_request)
+    json_request2 = {"type": "object_class", "filters": {"agency": "-1", "fy": "1600", "quarter": "1"}}
+    resp2 = client.post("/api/v2/spending/", content_type="application/json", data=json_request2)
+    assert resp.status_code == status.HTTP_200_OK
+    assert resp2.status_code == status.HTTP_200_OK
+    response = resp.json()
+    response2 = resp2.json()
+    expected_results = {
+        "total": -15,
+        "agencies": ["random_recipient_name_2", "Non-Award Spending", "random_recipient_name_1"],
+        "amounts": [-3, -3, -9],
+    }
+
+    actual_results = {
+        "total": response["total"],
+        "agencies": [entry["name"] for entry in response["results"]],
+        "amounts": [entry["amount"] for entry in response["results"]],
+    }
+    assert expected_results == actual_results
+    assert response["total"] == response2["total"]

@@ -10,22 +10,31 @@ This endpoint supports the advanced search page and allow for complex filtering 
 This endpoint returns a list of aggregated award amounts grouped by time period in ascending order (earliest to most recent).
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
-        + `group`: `quarter` (required, enum[string])
+        + `group` (required, enum[string])
             + Members
                 + `fiscal_year`
                 + `quarter`
                 + `month`
-        + `filters` (required, FilterObject)
+            + Default
+                + `fiscal_year`
+        + `filters` (required, AdvancedFilterObject)
         + `subawards` (optional, boolean)
             True to group by sub-awards instead of prime awards. Defaults to false.
             + Default: false
     + Body
-        
-            { 
-                "group": "fiscal_year", 
-                "filters": { 
-                    "keywords": ["Filter is required"] 
+
+            {
+                "group": "fiscal_year",
+                "filters": {
+                    "keywords": ["Filter is required"]
                 }
             }
 
@@ -48,16 +57,16 @@ This endpoint returns a list of aggregated award amounts grouped by time period 
     The aggregate award amount for this time period and the given filters.
 
 ## TimePeriodGroup (object)
-+ `fiscal_year`: `2018` (required, string)
-+ `quarter`: `1` (optional, string)
++ `fiscal_year` (required, string)
++ `quarter` (optional, string)
     Excluded when grouping by `fiscal_year` or `month`.
-+ `month`: `1` (optional, string)
++ `month` (optional, string)
     Excluded when grouping by `fiscal_year` or `quarter`.
 
 
 ## Filter Objects
-### FilterObject (object)
-+ `keywords` : `transport` (optional, array[string])
+### AdvancedFilterObject (object)
++ `keywords`  (optional, array[string])
 + `time_period` (optional, array[TimePeriodObject], fixed-type)
 + `place_of_performance_scope` (optional, enum[string])
     + Members
@@ -79,12 +88,14 @@ This endpoint returns a list of aggregated award amounts grouped by time period 
     Award IDs surrounded by double quotes (e.g. `"SPE30018FLJFN"`) will perform exact matches as opposed to the default, fuzzier full text matches.  Useful for Award IDs that contain spaces or other word delimiters.
 + `award_amounts` (optional, array[AwardAmounts], fixed-type)
 + `program_numbers`: `10.331` (optional, array[string])
-+ `naics_codes`: `311812` (optional, array[string])
-+ `psc_codes`: `8940`, `8910` (optional, array[string])
++ `naics_codes` (optional, NAICSCodeObject)
++ `psc_codes` (optional, enum[PSCCodeObject, array[string]])
+    Supports new PSCCodeObject or legacy array of codes.
 + `contract_pricing_type_codes`: `J` (optional, array[string])
 + `set_aside_type_codes`: `NONE` (optional, array[string])
 + `extent_competed_type_codes`: `A` (optional, array[string])
 + `tas_codes` (optional, array[TASCodeObject], fixed-type)
++ `treasury_account_components` (optional, array[TreasuryAccountComponentsObject], fixed-type)
 
 ### TimePeriodObject (object)
 + `start_date`: `2017-10-01` (required, string)
@@ -115,13 +126,28 @@ This endpoint returns a list of aggregated award amounts grouped by time period 
     + Members
         + `toptier`
         + `subtier`
-+ `name`: `Department of Defense` (required, string)
++ `name`: `Office of Inspector General` (required, string)
++ `toptier_name`: `Department of the Treasury` (optional, string)
+    Only applicable when `tier` is `subtier`.  Ignored when `tier` is `toptier`.  Provides a means by which to scope subtiers with common names to a
+    specific toptier.  For example, several agencies have an "Office of Inspector General".  If not provided, subtiers may span more than one toptier.
 
 ### AwardAmounts (object)
 + `lower_bound` (optional, number)
 + `upper_bound`: 1000000 (optional, number)
 
+### NAICSCodeObject (object)
++ `require`: [`33`] (optional, array[string], fixed-type)
++ `exclude`: [`3333`] (optional, array[string], fixed-type)
+
+### PSCCodeObject (object)
++ `require`: [[`Service`, `B`, `B5`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`Service`, `B`, `B5`, `B502`]] (optional, array[array[string]], fixed-type)
+
 ### TASCodeObject (object)
++ `require`: [[`091`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`091`, `091-0800`]] (optional, array[array[string]], fixed-type)
+
+### TreasuryAccountComponentsObject (object)
 + `ata` (optional, string, nullable)
     Allocation Transfer Agency Identifier - three characters
 + `aid` (required, string)

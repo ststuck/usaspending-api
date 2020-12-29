@@ -18,18 +18,18 @@ class Migration(migrations.Migration):
     # fields unless they are referenced by another model so this should cause no harm.
     operations = [
         migrations.CreateModel(
-            name='AwardSearchView',
+            name='AgencyAutocompleteMatview',
             fields=[],
             options={
-                'db_table': 'vw_award_search',
+                'db_table': 'mv_agency_autocomplete',
                 'managed': False,
             },
         ),
         migrations.CreateModel(
-            name='AwardSummaryMatview',
+            name='AwardSearchView',
             fields=[],
             options={
-                'db_table': 'mv_award_summary',
+                'db_table': 'vw_award_search',
                 'managed': False,
             },
         ),
@@ -98,82 +98,10 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='SummaryCfdaNumbersView',
-            fields=[],
-            options={
-                'db_table': 'summary_view_cfda_number',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryNaicsCodesView',
-            fields=[],
-            options={
-                'db_table': 'summary_view_naics_codes',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryPscCodesView',
-            fields=[],
-            options={
-                'db_table': 'summary_view_psc_codes',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
             name='SummaryStateView',
             fields=[],
             options={
                 'db_table': 'summary_state_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryTransactionFedAcctView',
-            fields=[],
-            options={
-                'db_table': 'summary_transaction_fed_acct_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryTransactionGeoView',
-            fields=[],
-            options={
-                'db_table': 'summary_transaction_geo_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryTransactionMonthView',
-            fields=[],
-            options={
-                'db_table': 'summary_transaction_month_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryTransactionRecipientView',
-            fields=[],
-            options={
-                'db_table': 'summary_transaction_recipient_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryTransactionView',
-            fields=[],
-            options={
-                'db_table': 'summary_transaction_view',
-                'managed': False,
-            },
-        ),
-        migrations.CreateModel(
-            name='SummaryView',
-            fields=[],
-            options={
-                'db_table': 'summary_view',
                 'managed': False,
             },
         ),

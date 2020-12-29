@@ -1,8 +1,7 @@
-import json
-
+from builtins import Exception
 from datetime import datetime, timezone
 from django.conf import settings
-from django.core.serializers.json import DjangoJSONEncoder
+from django.core.serializers.json import json, DjangoJSONEncoder
 from django.db import connection, DEFAULT_DB_ALIAS
 from elasticsearch import Elasticsearch
 from pathlib import Path
@@ -16,7 +15,14 @@ from usaspending_api.common.sqs.sqs_handler import (
 )
 from usaspending_api.common.helpers.sql_helpers import ordered_dictionary_fetcher
 from usaspending_api.common.helpers.text_helpers import generate_random_string
-from usaspending_api.etl.es_etl_helpers import create_aliases
+from usaspending_api.etl.elasticsearch_loader_helpers import (
+    create_award_type_aliases,
+    execute_sql_statement,
+    TaskSpec,
+    transform_award_data,
+    transform_covid19_faba_data,
+    transform_transaction_data,
+)
 from usaspending_api.etl.management.commands.es_configure import retrieve_index_template
 
 
@@ -31,60 +37,116 @@ class TestElasticSearchIndex:
         self.index_name = self._generate_index_name()
         self.alias_prefix = self.index_name
         self.client = Elasticsearch([settings.ES_HOSTNAME], timeout=settings.ES_TIMEOUT)
-        self.template = retrieve_index_template("{}_template".format(self.index_type[:-1]))
+        self.template = retrieve_index_template(f"{self.index_type}_template")
         self.mappings = json.loads(self.template)["mappings"]
-        self.doc_type = str(list(self.mappings.keys())[0])
+        self.etl_config = {
+            "index_name": self.index_name,
+            "query_alias_prefix": self.alias_prefix,
+            "verbose": False,
+            "write_alias": self.index_name + "-alias",
+        }
+        self.worker = TaskSpec(
+            base_table=None,
+            base_table_id=None,
+            execute_sql_func=execute_sql_statement,
+            field_for_es_id="award_id" if self.index_type == "award" else "transaction_id",
+            index=self.index_name,
+            is_incremental=None,
+            name=f"{self.index_type} test worker",
+            partition_number=None,
+            primary_key="award_id" if self.index_type == "award" else "transaction_id",
+            sql=None,
+            transform_func=None,
+            view=None,
+        )
 
     def delete_index(self):
         self.client.indices.delete(self.index_name, ignore_unavailable=True)
 
-    def update_index(self):
+    def update_index(self, **options):
         """
         To ensure a fresh Elasticsearch index, delete the old one, update the
         materialized views, re-create the Elasticsearch index, create aliases
         for the index, and add contents.
         """
         self.delete_index()
-        self.client.indices.create(self.index_name, self.template)
-        create_aliases(self.client, self.index_name, self.index_type, True)
-        self._add_contents()
+        self.client.indices.create(index=self.index_name, body=self.template)
+        create_award_type_aliases(self.client, self.etl_config)
+        self._add_contents(**options)
 
-    def _add_contents(self):
+    def _add_contents(self, **options):
         """
         Get all of the transactions presented in the view and stuff them into the Elasticsearch index.
         The view is only needed to load the transactions into Elasticsearch so it is dropped after each use.
         """
-        view_sql_file = "award_delta_view.sql" if self.index_type == "awards" else "transaction_delta_view.sql"
+        if self.index_type == "award":
+            view_sql_file = f"{settings.ES_AWARDS_ETL_VIEW_NAME}.sql"
+            view_name = settings.ES_AWARDS_ETL_VIEW_NAME
+            es_id = f"{self.index_type}_id"
+        elif self.index_type == "covid19_faba":
+            view_sql_file = f"{settings.ES_COVID19_FABA_ETL_VIEW_NAME}.sql"
+            view_name = settings.ES_COVID19_FABA_ETL_VIEW_NAME
+            es_id = "financial_account_distinct_award_key"
+        elif self.index_type == "transaction":
+            view_sql_file = f"{settings.ES_TRANSACTIONS_ETL_VIEW_NAME}.sql"
+            view_name = settings.ES_TRANSACTIONS_ETL_VIEW_NAME
+            es_id = f"{self.index_type}_id"
+        else:
+            raise Exception("Invalid index type")
+
         view_sql = open(str(settings.APP_DIR / "database_scripts" / "etl" / view_sql_file), "r").read()
         with connection.cursor() as cursor:
             cursor.execute(view_sql)
-            if self.index_type == "transactions":
-                view_name = settings.ES_TRANSACTIONS_ETL_VIEW_NAME
-            else:
-                view_name = settings.ES_AWARDS_ETL_VIEW_NAME
             cursor.execute(f"SELECT * FROM {view_name};")
-            transactions = ordered_dictionary_fetcher(cursor)
+            records = ordered_dictionary_fetcher(cursor)
             cursor.execute(f"DROP VIEW {view_name};")
+            if self.index_type == "award":
+                records = transform_award_data(self.worker, records)
+            elif self.index_type == "transaction":
+                records = transform_transaction_data(self.worker, records)
+            elif self.index_type == "covid19_faba":
+                records = transform_covid19_faba_data(
+                    TaskSpec(
+                        name="worker",
+                        index=self.index_name,
+                        sql=view_sql_file,
+                        view=view_name,
+                        base_table="financial_accounts_by_awards",
+                        base_table_id="financial_accounts_by_awards_id",
+                        field_for_es_id="financial_account_distinct_award_key",
+                        primary_key="award_id",
+                        partition_number=1,
+                        is_incremental=False,
+                    ),
+                    records,
+                )
 
-        for transaction in transactions:
+        for record in records:
+            # Special cases where we convert array of JSON to an array of strings to avoid nested types
+            routing_key = options.get("routing", settings.ES_ROUTING_FIELD)
+            routing_value = record.get(routing_key)
+
+            if "_id" in record:
+                es_id_value = record.pop("_id")
+            else:
+                es_id_value = record.get(es_id)
+
             self.client.index(
-                self.index_name,
-                self.doc_type,
-                json.dumps(transaction, cls=DjangoJSONEncoder),
-                transaction["{}_id".format(self.index_type[:-1])],
+                index=self.index_name,
+                body=json.dumps(record, cls=DjangoJSONEncoder),
+                id=es_id_value,
+                routing=routing_value,
             )
         # Force newly added documents to become searchable.
         self.client.indices.refresh(self.index_name)
 
     @classmethod
     def _generate_index_name(cls):
-        return "test-{}-{}".format(
-            datetime.now(timezone.utc).strftime("%Y-%m-%d-%H-%M-%S-%f"), generate_random_string()
-        )
+        return f"test-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M-%S-%f')}-{generate_random_string()}"
 
 
 def ensure_broker_server_dblink_exists():
-    """Ensure that all the database extensions exist, and the the broker database is setup as a foreign data server
+    """Ensure that all the database extensions exist, and the broker database is setup as a foreign data server
 
     This leverages SQL script files and connection strings in ``settings.DATABASES`` in order to setup these database
     objects. The connection strings for BOTH the USAspending and the Broker databases are needed,

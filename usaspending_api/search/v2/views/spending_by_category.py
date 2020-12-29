@@ -2,66 +2,39 @@ import copy
 import logging
 
 from django.conf import settings
-from django.db.models import Case, IntegerField, Sum, Value, When
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from usaspending_api.awards.v2.filters.sub_award import subaward_filter
-from usaspending_api.awards.v2.filters.view_selector import spending_by_category_view_queryset
 from usaspending_api.common.api_versioning import api_transformations, API_TRANSFORM_FUNCTIONS
 from usaspending_api.common.cache_decorator import cache_response
-from usaspending_api.common.exceptions import InvalidParameterException
-from usaspending_api.common.experimental_api_flags import is_experimental_elasticsearch_api
-from usaspending_api.common.helpers.api_helper import alias_response
-from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata, get_time_period_message
-from usaspending_api.common.recipient_lookups import combine_recipient_hash_and_level
+from usaspending_api.common.exceptions import NotImplementedException
 from usaspending_api.common.validator.award_filter import AWARD_FILTER
 from usaspending_api.common.validator.pagination import PAGINATION
 from usaspending_api.common.validator.tinyshield import TinyShield
-from usaspending_api.recipient.models import RecipientLookup, RecipientProfile
-from usaspending_api.recipient.v2.lookups import SPECIAL_CASES
-from usaspending_api.search.helpers.spending_by_category_helpers import (
-    fetch_cfda_id_title_by_number,
-    fetch_psc_description_by_code,
-    fetch_naics_description_from_code,
-    fetch_country_name_from_code,
-    fetch_state_name_from_code,
-)
 from usaspending_api.search.v2.views.spending_by_category_views.spending_by_agency_types import (
     AwardingAgencyViewSet,
     AwardingSubagencyViewSet,
     FundingAgencyViewSet,
     FundingSubagencyViewSet,
 )
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_industry_codes import (
+    CfdaViewSet,
+    PSCViewSet,
+    NAICSViewSet,
+)
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_federal_account import FederalAccountViewSet
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_locations import (
+    CountyViewSet,
+    CountryViewSet,
+    DistrictViewSet,
+    StateTerritoryViewSet,
+)
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_recipient_duns import RecipientDunsViewSet
 
 logger = logging.getLogger(__name__)
 
 API_VERSION = settings.API_VERSION
-
-ALIAS_DICT = {
-    "recipient_duns": {
-        "recipient_id": "recipient_id",
-        "recipient_name": "name",
-        "recipient_unique_id": "code",
-        "parent_recipient_unique_id": "code",
-    },
-    "cfda": {
-        "cfda_number": "code",
-        # Note: we could pull cfda title from the matviews but noticed the titles vary for the same cfda number
-        #       which leads to incorrect groupings
-        # 'cfda_title': 'name'
-    },
-    "psc": {"product_or_service_code": "code"},
-    "naics": {"naics_code": "code", "naics_description": "name"},
-    "county": {"pop_county_code": "code", "pop_county_name": "name"},
-    "district": {"pop_congressional_code": "code"},
-    "state_territory": {"pop_state_code": "code"},
-    "country": {"pop_country_code": "code"},
-    "federal_account": {"federal_account_id": "id", "federal_account_display": "code", "account_title": "name"},
-}
-
-ALIAS_DICT["recipient_parent_duns"] = ALIAS_DICT["recipient_duns"]
 
 
 @api_transformations(api_version=API_VERSION, function_list=API_TRANSFORM_FUNCTIONS)
@@ -100,263 +73,32 @@ class SpendingByCategoryVisualizationViewSet(APIView):
         models.extend(copy.deepcopy(PAGINATION))
 
         # Apply/enforce POST body schema and data validation in request
+        original_filters = request.data.get("filters")
         validated_payload = TinyShield(models).block(request.data)
 
-        validated_payload["elasticsearch"] = is_experimental_elasticsearch_api(request)
-
         # Execute the business logic for the endpoint and return a python dict to be converted to a Django response
-        if validated_payload["category"] == "awarding_agency":
-            response = AwardingAgencyViewSet().perform_search(validated_payload)
-        elif validated_payload["category"] == "awarding_subagency":
-            response = AwardingSubagencyViewSet().perform_search(validated_payload)
-        elif validated_payload["category"] == "funding_agency":
-            response = FundingAgencyViewSet().perform_search(validated_payload)
-        elif validated_payload["category"] == "funding_subagency":
-            response = FundingSubagencyViewSet().perform_search(validated_payload)
-        else:
-            response = BusinessLogic(validated_payload).results()
-
-        return Response(response)
-
-
-class BusinessLogic:
-    # __slots__ will keep this object smaller
-    __slots__ = (
-        "subawards",
-        "category",
-        "page",
-        "limit",
-        "obligation_column",
-        "lower_limit",
-        "upper_limit",
-        "filters",
-        "queryset",
-    )
-
-    def __init__(self, payload: dict):
-        """
-            payload is tightly integrated with
-        """
-        self.subawards = payload["subawards"]
-        self.category = payload["category"]
-        self.page = payload["page"]
-        self.limit = payload["limit"]
-        self.filters = payload.get("filters", {})
-
-        self.lower_limit = (self.page - 1) * self.limit
-        self.upper_limit = self.page * self.limit + 1  # Add 1 for simple "Next Page" check
-
-        if self.subawards:
-            self.queryset = subaward_filter(self.filters)
-            self.obligation_column = "amount"
-        else:
-            self.queryset = spending_by_category_view_queryset(self.category, self.filters)
-            self.obligation_column = "generated_pragmatic_obligation"
-
-    def raise_not_implemented(self):
-        msg = "Category '{}' is not implemented"
-        if self.subawards:
-            msg += " when `subawards` is True"
-        raise InvalidParameterException(msg.format(self.category))
-
-    def common_db_query(self, filters, values):
-        return (
-            self.queryset.filter(**filters)
-            .values(*values)
-            .annotate(amount=Sum(self.obligation_column))
-            .order_by("-amount")
-        )
-
-    def results(self) -> dict:
-        results = []
-        # filter the transactions by category
-        if self.category in ("recipient_duns", "recipient_parent_duns"):
-            results = self.recipient()
-        elif self.category in ("cfda", "psc", "naics"):
-            results = self.industry_and_other_codes()
-        elif self.category in ("county", "district", "state_territory", "country"):
-            results = self.location()
-        elif self.category in ("federal_account"):
-            results = self.federal_account()
-
-        page_metadata = get_simple_pagination_metadata(len(results), self.limit, self.page)
-
-        response = {
-            "category": self.category,
-            "limit": self.limit,
-            "page_metadata": page_metadata,
-            # alias_response is a workaround for tests instead of applying any aliases in the querysets
-            "results": results[: self.limit],
-            "messages": [get_time_period_message()],
+        business_logic_lookup = {
+            "awarding_agency": AwardingAgencyViewSet().perform_search,
+            "awarding_subagency": AwardingSubagencyViewSet().perform_search,
+            "cfda": CfdaViewSet().perform_search,
+            "country": CountryViewSet().perform_search,
+            "county": CountyViewSet().perform_search,
+            "district": DistrictViewSet().perform_search,
+            "federal_account": FederalAccountViewSet().perform_search,
+            "funding_agency": FundingAgencyViewSet().perform_search,
+            "funding_subagency": FundingSubagencyViewSet().perform_search,
+            "naics": NAICSViewSet().perform_search,
+            "psc": PSCViewSet().perform_search,
+            "recipient_duns": RecipientDunsViewSet().perform_search,
+            "state_territory": StateTerritoryViewSet().perform_search,
         }
-        return response
+        business_logic_func = business_logic_lookup.get(validated_payload["category"])
+        if business_logic_func:
+            return Response(business_logic_func(validated_payload, original_filters))
+        else:
+            self.raise_not_implemented(validated_payload)
 
     @staticmethod
-    def _get_recipient_id(row):
-        """
-        In the recipient_profile table there is a 1 to 1 relationship between hashes and DUNS
-        (recipient_unique_id) and the hashes+duns match exactly between recipient_profile and
-        recipient_lookup where there are matches.  Grab the level from recipient_profile by
-        hash if we have one or by DUNS if we have one of those.
-        """
-        if "recipient_hash" in row:
-            profile_filter = {"recipient_hash": row["recipient_hash"]}
-        elif "recipient_unique_id" in row:
-            profile_filter = {"recipient_unique_id": row["recipient_unique_id"]}
-        else:
-            raise RuntimeError(
-                "Attempted to lookup recipient profile using a queryset that contains neither "
-                "'recipient_hash' nor 'recipient_unique_id'"
-            )
-
-        profile = (
-            RecipientProfile.objects.filter(**profile_filter)
-            .exclude(recipient_name__in=SPECIAL_CASES)
-            .annotate(
-                sort_order=Case(
-                    When(recipient_level="C", then=Value(0)),
-                    When(recipient_level="R", then=Value(1)),
-                    default=Value(2),
-                    output_field=IntegerField(),
-                )
-            )
-            .values("recipient_hash", "recipient_level")
-            .order_by("sort_order")
-            .first()
-        )
-
-        return (
-            combine_recipient_hash_and_level(profile["recipient_hash"], profile["recipient_level"]) if profile else None
-        )
-
-    def recipient(self) -> list:
-        if self.category == "recipient_duns":
-            filters = {}
-            if self.subawards:
-                values = ["recipient_name", "recipient_unique_id"]
-            else:
-                values = ["recipient_hash"]
-
-        elif self.category == "recipient_parent_duns":
-            # TODO: check if we can aggregate on recipient name and parent duns,
-            #    since parent recipient name isn't available
-            # Not implemented until "Parent Recipient Name" is in matviews
-            self.raise_not_implemented()
-            # filters = {'parent_recipient_unique_id__isnull': False}
-            # values = ['recipient_name', 'parent_recipient_unique_id']
-
-        self.queryset = self.common_db_query(filters, values)
-        # DB hit here
-        query_results = list(self.queryset[self.lower_limit : self.upper_limit])
-        for row in query_results:
-
-            row["recipient_id"] = self._get_recipient_id(row)
-
-            if not self.subawards:
-
-                lookup = (
-                    RecipientLookup.objects.filter(recipient_hash=row["recipient_hash"])
-                    .values("legal_business_name", "duns")
-                    .first()
-                )
-
-                # The Recipient Name + DUNS should always be retrievable in RecipientLookup
-                # For odd edge cases or data sync issues, handle gracefully:
-                if lookup is None:
-                    lookup = {}
-
-                row["recipient_name"] = lookup.get("legal_business_name", None)
-                row["recipient_unique_id"] = lookup.get("duns", "DUNS Number not provided")
-                del row["recipient_hash"]
-
-        results = alias_response(ALIAS_DICT[self.category], query_results)
-        return results
-
-    def industry_and_other_codes(self) -> list:
-        if self.category == "cfda":
-            filters = {"{}__isnull".format(self.obligation_column): False, "cfda_number__isnull": False}
-            values = ["cfda_number"]
-        elif self.category == "psc":
-            if self.subawards:
-                # N/A for subawards
-                self.raise_not_implemented()
-            filters = {"product_or_service_code__isnull": False}
-            values = ["product_or_service_code"]
-        elif self.category == "naics":
-            if self.subawards:
-                # TODO: get subaward NAICS from Broker
-                self.raise_not_implemented()
-            filters = {"naics_code__isnull": False}
-            values = ["naics_code", "naics_description"]
-
-        self.queryset = self.common_db_query(filters, values)
-        # DB hit here
-        query_results = list(self.queryset[self.lower_limit : self.upper_limit])
-
-        results = alias_response(ALIAS_DICT[self.category], query_results)
-        for row in results:
-            if self.category == "cfda":
-                row["id"], row["name"] = fetch_cfda_id_title_by_number(row["code"])
-            elif self.category == "psc":
-                row["id"] = None
-                row["name"] = fetch_psc_description_by_code(row["code"])
-            elif self.category == "naics":
-                row["id"] = None
-                row["name"] = fetch_naics_description_from_code(row["code"], row["name"])
-        return results
-
-    def location(self) -> list:
-        filters = {}
-        values = {}
-        if self.category == "county":
-            filters = {"pop_county_code__isnull": False}
-            values = ["pop_county_code", "pop_county_name"]
-        elif self.category == "district":
-            filters = {"pop_congressional_code__isnull": False}
-            values = ["pop_congressional_code", "pop_state_code"]
-        elif self.category == "country":
-            filters = {"pop_country_code__isnull": False}
-            values = ["pop_country_code"]
-        elif self.category == "state_territory":
-            filters = {"pop_state_code__isnull": False}
-            values = ["pop_state_code"]
-
-        self.queryset = self.common_db_query(filters, values)
-
-        # DB hit here
-        query_results = list(self.queryset[self.lower_limit : self.upper_limit])
-
-        results = alias_response(ALIAS_DICT[self.category], query_results)
-        for row in results:
-            row["id"] = None
-            if self.category == "district":
-                cd_code = row["code"]
-                if cd_code == "90":  # 90 = multiple districts
-                    cd_code = "MULTIPLE DISTRICTS"
-
-                row["name"] = "{}-{}".format(row["pop_state_code"], cd_code)
-                del row["pop_state_code"]
-            if self.category == "country":
-                row["name"] = fetch_country_name_from_code(row["code"])
-            if self.category == "state_territory":
-                row["name"] = fetch_state_name_from_code(row["code"])
-        return results
-
-    def federal_account(self) -> list:
-        # Awards -> FinancialAccountsByAwards -> TreasuryAppropriationAccount -> FederalAccount
-        filters = {"federal_account_id__isnull": False}
-        values = ["federal_account_id", "federal_account_display", "account_title"]
-
-        if self.subawards:
-            # N/A for subawards
-            self.raise_not_implemented()
-
-        # Note: For performance reasons, limiting to only recipient profile requests
-        if "recipient_id" not in self.filters:
-            raise InvalidParameterException("Federal Account category requires recipient_id in search filter")
-
-        self.queryset = self.common_db_query(filters, values)
-
-        # DB hit here
-        query_results = list(self.queryset[self.lower_limit : self.upper_limit])
-        return alias_response(ALIAS_DICT[self.category], query_results)
+    def raise_not_implemented(payload):
+        msg = f"Category '{payload['category']}' is not implemented"
+        raise NotImplementedException(msg)

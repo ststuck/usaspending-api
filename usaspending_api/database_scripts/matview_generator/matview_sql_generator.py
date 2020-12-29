@@ -3,11 +3,20 @@
 import argparse
 import glob
 import hashlib
-import json
 import os
-import subprocess
 
-from uuid import uuid4
+from shared_sql_generator import (
+    COMPONENT_DIR,
+    generate_uid,
+    HERE,
+    ingest_json,
+    make_indexes_sql,
+    make_matview_refresh,
+    make_modification_sql,
+    make_stats_sql,
+    split_indexes_chunks,
+    TEMPLATE,
+)
 
 # Usage: python matview_sql_generator.py (from usaspending_api/database_scripts/matview_generator)
 #        ^--- Will clobber files in usaspending_api/database_scripts/matviews
@@ -56,102 +65,6 @@ EXAMPLE SQL DESCRIPTION JSON FILE:
 }
 """
 
-TEMPLATE = {
-    "create_matview": "CREATE MATERIALIZED VIEW {} AS\n{} WITH {}DATA;",
-    "drop_matview": "DROP MATERIALIZED VIEW IF EXISTS {} CASCADE;",
-    "rename_matview": "ALTER MATERIALIZED VIEW {}{} RENAME TO {};",
-    "cluster_matview": "CLUSTER VERBOSE {} USING {};",
-    "refresh_matview": "REFRESH MATERIALIZED VIEW {}{} WITH DATA;",
-    "analyze": "ANALYZE VERBOSE {};",
-    "vacuum": "VACUUM ANALYZE VERBOSE {};",
-    "create_index": "CREATE {}INDEX {} ON {} USING {}({}){}{};",
-    "create_stats": "CREATE STATISTICS {} ON {} FROM {};",
-    "rename_index": "ALTER INDEX {}{} RENAME TO {};",
-    "rename_stats": "ALTER STATISTICS {} RENAME TO {};",
-    "grant_select": "GRANT SELECT ON {} TO {};",
-    "sql_print_output": "DO $$ BEGIN RAISE NOTICE '{}'; END $$;",
-}
-
-CLUSTERING_INDEX = None
-COMMIT_HASH = ""
-COMPONENT_DIR = "componentized/"
-DEST_FOLDER = "../matviews/"
-GLOBAL_ARGS = None
-HERE = os.path.abspath(os.path.dirname(__file__))
-MAX_NAME_LENGTH = 45  # postgres max 63 ascii chars
-RANDOM_CHARS = ""
-
-
-def ingest_json(path):
-    with open(path) as f:
-        doc = json.load(f)
-    return doc
-
-
-def generate_uid(characters=8, filename=None):
-    git_hash = None
-    try:
-        git_hash = get_git_commit(characters - 1, filename)
-    except Exception as e:
-        print("Error: [{}]. Continuing...".format(e))
-    if git_hash is None:
-        return str(uuid4())[:characters]
-    else:
-        return git_hash + "$"
-
-
-def get_git_commit(characters=8, filename=None):
-    cmd = 'git log -n 1 --pretty=format:"%H"'
-    cmd_args = cmd.split(" ")
-    if filename and os.path.isfile(filename):
-        cmd_args.append(filename)
-
-    shell = subprocess.run(cmd_args, stdout=subprocess.PIPE, check=True)
-    if shell.stdout:
-        # First character is a '#' so skip it
-        return shell.stdout[1 : characters + 1].decode()
-    return None
-
-
-def create_index_string(matview_name, index_name, idx):
-    if idx.get("cluster_on_this", False):
-        global CLUSTERING_INDEX
-        CLUSTERING_INDEX = index_name
-    idx_method = idx.get("method", "BTREE")  # if missing, defaults to BTREE
-    idx_unique = "UNIQUE " if idx.get("unique", False) else ""
-    idx_where = " WHERE " + idx["where"] if idx.get("where", None) else ""
-    idx_with = ""
-    if idx_method.upper() == "BTREE":
-        idx_with = " WITH (fillfactor = 97)"  # reduce btree index size by 7% from the default 10% free-space
-
-    idx_cols = []
-    for col in idx["columns"]:
-        index_def = [col["name"]]  # Critial to have col or expression. Exception if missing
-        if col.get("order", None):  # if missing, skip and let postgres default to ASC
-            index_def.append(col["order"])
-        if col.get("collation", None):  # if missing, skip and let postgres use default
-            index_def.append("COLLATE " + col["collation"])
-        if col.get("opclass", None):  # if missing, skip and let postgres choose
-            index_def.append(col["opclass"])
-        idx_cols.append(" ".join(index_def))
-    idx_str = TEMPLATE["create_index"].format(
-        idx_unique, index_name, matview_name, idx_method, ", ".join(idx_cols), idx_with, idx_where
-    )
-    return idx_str
-
-
-def split_indexes_chunks(index_list, file_count):
-    """
-        loop through all index strings (only the lines which start with "CREATE") and populate
-        sublists with the full-set in a round-robin ordering to spread-out similar indexes
-        to different workers as a poorman's averaging of the execution times
-    """
-    results = [list() for _ in range(file_count)]  # create empty lists for the index SQL strings
-    for i, index in enumerate([index for index in index_list if index.startswith("CREATE")]):
-        results[i % file_count].append(index)
-    for result in results:
-        yield result
-
 
 def make_matview_drops(final_matview_name):
     matview_temp_name = final_matview_name + "_temp"
@@ -168,95 +81,6 @@ def make_matview_create(final_matview_name, sql):
         with_or_without_data = "NO "
 
     return [TEMPLATE["create_matview"].format(matview_temp_name, matview_sql, with_or_without_data)]
-
-
-def make_matview_refresh(matview_name, concurrently="CONCURRENTLY "):
-    statement_list = [TEMPLATE["refresh_matview"].format(concurrently, matview_name)]
-    if concurrently == "CONCURRENTLY ":
-        statement_list.append(TEMPLATE["vacuum"].format(matview_name))
-    return statement_list
-
-
-def make_indexes_sql(sql_json, matview_name):
-    unique_name_list = []
-    create_indexes = []
-    rename_old_indexes = []
-    rename_new_indexes = []
-    for idx in sql_json["indexes"]:
-        if len(idx["name"]) > MAX_NAME_LENGTH:
-            raise Exception("Desired index name is too long. Keep under {} chars".format(MAX_NAME_LENGTH))
-
-        final_index = "idx_" + COMMIT_HASH + RANDOM_CHARS + "_" + idx["name"]
-        final_index = final_index.replace("-", "")
-        unique_name_list.append(final_index)
-        tmp_index = final_index + "_temp"
-        old_index = final_index + "_old"
-
-        idx_str = create_index_string(matview_name, tmp_index, idx)
-
-        create_indexes.append(idx_str)
-        rename_old_indexes.append(TEMPLATE["rename_index"].format("IF EXISTS ", final_index, old_index))
-        rename_new_indexes.append(TEMPLATE["rename_index"].format("", tmp_index, final_index))
-
-    if len(unique_name_list) != len(set(unique_name_list)):
-        raise Exception("Name collision detected. Examine JSON file")
-    total = len(create_indexes)
-    print_debug("There are {} index creations".format(total))
-    indexes_and_msg = []
-    for n, index in enumerate(create_indexes):
-        if n % 10 == 0 and n > 0:
-            console = TEMPLATE["sql_print_output"].format("{} indexes created, {} remaining".format(n, total - n))
-            indexes_and_msg.append(console)
-        indexes_and_msg.append(index)
-
-    return indexes_and_msg, rename_old_indexes, rename_new_indexes
-
-
-def make_stats_sql(sql_json, matview_name):
-    unique_name_list = []
-    create_stats = []
-    rename_new_stats = []
-    rename_old_stats = []
-    if not sql_json.get("stats"):
-        return create_stats, rename_old_stats, rename_new_stats
-
-    rename_old_stats = ["DO $$ BEGIN"]
-
-    for stat in sql_json["stats"]:
-        if len(stat["name"]) > MAX_NAME_LENGTH:
-            raise Exception("Desired stat name is too long. Keep under {} chars".format(MAX_NAME_LENGTH))
-
-        final_stat = "st_" + COMMIT_HASH + RANDOM_CHARS + "_" + stat["name"]
-        final_stat = final_stat.replace("-", "")
-        unique_name_list.append(final_stat)
-        tmp_stat = final_stat + "_temp"
-        old_stat = final_stat + "_old"
-
-        columns = ", ".join(stat["columns"])
-        stat_str = TEMPLATE["create_stats"].format(tmp_stat, columns, matview_name)
-
-        create_stats.append(stat_str)
-        rename_new_stats.append(TEMPLATE["rename_stats"].format(tmp_stat, final_stat))
-        rename_old_stats.append(TEMPLATE["rename_stats"].format(final_stat, old_stat))
-
-    rename_old_stats.append("EXCEPTION WHEN undefined_object THEN")
-    rename_old_stats.append("RAISE NOTICE 'Skipping statistics renames, no conflicts'; END; $$ language 'plpgsql';")
-
-    if len(unique_name_list) != len(set(unique_name_list)):
-        raise Exception("Name collision detected. Examine JSON file")
-
-    return create_stats, rename_old_stats, rename_new_stats
-
-
-def make_modification_sql(matview_name):
-    global CLUSTERING_INDEX
-    sql_strings = []
-    if CLUSTERING_INDEX:
-        print_debug("*** This matview will be clustered on {} ***".format(CLUSTERING_INDEX))
-        sql_strings.append(TEMPLATE["cluster_matview"].format(matview_name, CLUSTERING_INDEX))
-    sql_strings.append(TEMPLATE["analyze"].format(matview_name))
-    sql_strings.append(TEMPLATE["grant_select"].format(matview_name, "readonly"))
-    return sql_strings
 
 
 def make_rename_sql(matview_name, old_indexes, old_stats, new_indexes, new_stats):
@@ -292,8 +116,10 @@ def create_all_sql_strings(sql_json):
     matview_name = sql_json["final_name"]
     matview_temp_name = matview_name + "_temp"
 
-    create_indexes, rename_old_indexes, rename_new_indexes = make_indexes_sql(sql_json, matview_temp_name)
-    create_stats, rename_old_stats, rename_new_stats = make_stats_sql(sql_json, matview_temp_name)
+    create_indexes, rename_old_indexes, rename_new_indexes = make_indexes_sql(
+        sql_json, matview_temp_name, UNIQUE_STRING, True, GLOBAL_ARGS.quiet
+    )
+    create_stats, rename_old_stats, rename_new_stats = make_stats_sql(sql_json, matview_temp_name, UNIQUE_STRING)
 
     final_sql_strings.extend(make_matview_drops(matview_name))
     final_sql_strings.append("")
@@ -310,7 +136,7 @@ def create_all_sql_strings(sql_json):
         make_rename_sql(matview_name, rename_old_indexes, rename_old_stats, rename_new_indexes, rename_new_stats)
     )
     final_sql_strings.append("")
-    final_sql_strings.extend(make_modification_sql(matview_name))
+    final_sql_strings.extend(make_modification_sql(matview_name, GLOBAL_ARGS.quiet))
     return final_sql_strings
 
 
@@ -331,8 +157,10 @@ def create_componentized_files(sql_json):
     matview_name = sql_json["final_name"]
     matview_temp_name = matview_name + "_temp"
 
-    create_indexes, rename_old_indexes, rename_new_indexes = make_indexes_sql(sql_json, matview_temp_name)
-    create_stats, rename_old_stats, rename_new_stats = make_stats_sql(sql_json, matview_temp_name)
+    create_indexes, rename_old_indexes, rename_new_indexes = make_indexes_sql(
+        sql_json, matview_temp_name, UNIQUE_STRING, True, GLOBAL_ARGS.quiet
+    )
+    create_stats, rename_old_stats, rename_new_stats = make_stats_sql(sql_json, matview_temp_name, UNIQUE_STRING)
 
     sql_strings = make_matview_drops(matview_name)
     write_sql_file(sql_strings, filename_base + "__drops")
@@ -349,7 +177,7 @@ def create_componentized_files(sql_json):
         for i, index_block in enumerate(split_indexes_chunks(indexes_and_stats, GLOBAL_ARGS.batch_indexes)):
             write_sql_file(index_block, index_dir_path + "group_{}".format(i))
 
-    sql_strings = make_modification_sql(matview_name)
+    sql_strings = make_modification_sql(matview_name, GLOBAL_ARGS.quiet)
     write_sql_file(sql_strings, filename_base + "__mods")
 
     sql_strings = make_rename_sql(
@@ -372,10 +200,10 @@ def create_monolith_file(sql_json):
 
 
 def main(source_file):
-    global COMMIT_HASH
-    global RANDOM_CHARS
-    COMMIT_HASH = generate_uid(9, source_file)
-    RANDOM_CHARS = hashlib.md5(source_file.encode("utf-8")).hexdigest()[:3]
+    global UNIQUE_STRING
+    commit_hash = generate_uid(9, source_file)
+    random_chars = hashlib.md5(source_file.encode("utf-8")).hexdigest()[:3]
+    UNIQUE_STRING = commit_hash + random_chars
 
     try:
         sql_json = ingest_json(source_file)
@@ -383,8 +211,10 @@ def main(source_file):
         print("Error on Matview source JSON file: {}".format(source_file))
         print(e)
         raise SystemExit(1)
+
     create_monolith_file(sql_json)
     create_componentized_files(sql_json)
+
     print_debug("Done")
 
 

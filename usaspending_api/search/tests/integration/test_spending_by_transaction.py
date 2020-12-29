@@ -5,6 +5,7 @@ from model_mommy import mommy
 from time import perf_counter
 from rest_framework import status
 
+from usaspending_api.search.tests.data.utilities import setup_elasticsearch_test
 
 ENDPOINT = "/api/v2/search/spending_by_transaction/"
 
@@ -76,9 +77,8 @@ def test_no_intersection(client):
 
 
 @pytest.mark.django_db
-def test_all_fields_returned(client, transaction_data, elasticsearch_transaction_index):
-
-    elasticsearch_transaction_index.update_index()
+def test_all_fields_returned(client, monkeypatch, transaction_data, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
 
     fields = [
         "Recipient Name",
@@ -122,9 +122,8 @@ def test_all_fields_returned(client, transaction_data, elasticsearch_transaction
 
 
 @pytest.mark.django_db
-def test_subset_of_fields_returned(client, transaction_data, elasticsearch_transaction_index):
-
-    elasticsearch_transaction_index.update_index()
+def test_subset_of_fields_returned(client, monkeypatch, transaction_data, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
 
     fields = ["Award ID", "Recipient Name", "Mod"]
 
@@ -147,14 +146,12 @@ def test_subset_of_fields_returned(client, transaction_data, elasticsearch_trans
 
         assert "internal_id" in result
         assert "generated_internal_id" in result
-
         assert "Last Date to Order" not in result
 
 
 @pytest.mark.django_db
-def test_columns_can_be_sorted(client, transaction_data, elasticsearch_transaction_index):
-
-    elasticsearch_transaction_index.update_index()
+def test_columns_can_be_sorted(client, monkeypatch, transaction_data, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
 
     fields = [
         "Action Date",

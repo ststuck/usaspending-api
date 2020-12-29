@@ -1,128 +1,280 @@
 import logging
-import pytz
 
-from datetime import datetime
+from datetime import timedelta
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from django.db import connections, DEFAULT_DB_ALIAS
+from django.db import transaction
+from django.db.models import Max
+from django.utils.crypto import get_random_string
+from usaspending_api.common.helpers.date_helper import now, datetime_command_line_argument_type
+from usaspending_api.etl.submission_loader_helpers.final_of_fy import populate_final_of_fy
+from usaspending_api.etl.submission_loader_helpers.submission_ids import get_new_or_updated_submission_ids
+from usaspending_api.submissions import dabs_loader_queue_helpers as dlqh
+from usaspending_api.submissions.models import SubmissionAttributes
 
-logger = logging.getLogger("console")
-exception_logger = logging.getLogger("exceptions")
+
+logger = logging.getLogger("script")
+
+
+DISPLAY_CAP = 100
 
 
 class Command(BaseCommand):
+    help = (
+        "The goal of this management command is coordinate the loading of multiple submissions "
+        "simultaneously using the load_submission single submission loader.  To load submissions "
+        "in parallel, kick off multiple runs at the same time.  Runs will be coordinated via the "
+        "dabs_loader_queue table in the database which allows loaders to be run from different "
+        "machines in different environments.  Using the database as the queue sidesteps the AWS "
+        "SQS 24 hour message lifespan limitation.  There is no hard cap on the number of jobs that "
+        "can be run simultaneously, but certainly there is a soft cap imposed by resource "
+        "contention.  During development, 8 were run in parallel without incident."
+    )
 
-    # Give it a fiscal year and a quarter. Will list missing subs/agencies and their recent certified dates.
+    submission_ids = None
+    incremental = False
+    start_datetime = None
+    report_queue_status_only = False
+    processor_id = None
+    heartbeat_timer = None
+    file_c_chunk_size = 100000
+    do_not_retry = []
+
     def add_arguments(self, parser):
-        parser.add_argument("fy", nargs=1, help="the fiscal year", type=int)
-        parser.add_argument("quarter", nargs=1, help="the fiscal quarter to load", type=int)
-        parser.add_argument("--safe", action="store_true", help="only list missing submissions from the FY/Quarter")
-
-    def handle(self, *args, **options):
-
-        try:
-            broker_conn = connections["data_broker"]
-            broker_cursor = broker_conn.cursor()
-            api_conn = connections[DEFAULT_DB_ALIAS]
-            api_cursor = api_conn.cursor()
-        except Exception as err:
-            logger.critical("Could not connect to database(s).")
-            logger.critical(err)
-            return
-
-        fy = options["fy"][0]
-        quarter = options["quarter"][0]
-
-        if not 1 <= quarter <= 4:
-            logger.critical("Acceptable values for fiscal quarter are 1-4 (was {}).".format(quarter))
-            return
-
-        # Convert fiscal quarter to starting month of calendar quarter
-        quarter = int(quarter) * 3
-
-        logger.info("Querying Broker DB for Submissions")
-
-        broker_cursor.execute(
-            "SELECT submission.submission_id, MAX(certify_history.created_at) AS certified_at, \
-                                  submission.cgac_code, submission.frec_code \
-                                  FROM submission \
-                                  JOIN certify_history ON certify_history.submission_id = submission.submission_id \
-                                  WHERE submission.d2_submission = FALSE \
-                                  AND submission.publish_status_id IN (2, 3) \
-                                  AND submission.reporting_fiscal_year = {} \
-                                  AND submission.reporting_fiscal_period = {} \
-                                  GROUP BY submission.submission_id;".format(
-                fy, quarter
-            )
+        mutually_exclusive_group = parser.add_mutually_exclusive_group(required=True)
+        mutually_exclusive_group.add_argument(
+            "--submission-ids",
+            help=(
+                "One or more Broker submission_ids to be reloaded.  These submissions are added to "
+                "the submission queue and processing begins on them immediately.  Due to the "
+                "asynchronous, multiprocessing nature of the submission queue, it is possible that "
+                "another loader might nab and/or complete one or more of these submissions before "
+                "we get to them.  This is just the nature of the beast.  The logs will document "
+                "when this happens.  Submissions loaded in this manner will be fully reloaded unless "
+                "another process is currently loading the submission."
+            ),
+            nargs="+",
+            type=int,
+        )
+        mutually_exclusive_group.add_argument(
+            "--incremental",
+            action="store_true",
+            help=(
+                "Loads new or updated submissions in Broker since the most recently published "
+                "submission in USAspending.  Submissions loaded in this manner will be updated "
+                "where possible.  Otherwise they will be fully reloaded."
+            ),
+        )
+        mutually_exclusive_group.add_argument(
+            "--start-datetime",
+            type=datetime_command_line_argument_type(naive=True),  # Broker date/times are naive.
+            help=(
+                "Loads new or updated submissions in Broker since the timestamp provided.  This is "
+                "effectively the same as the --incremental option except the start date/time is "
+                "specified on the command line."
+            ),
+        )
+        mutually_exclusive_group.add_argument(
+            "--report-queue-status-only",
+            action="store_true",
+            help="Just reports the queue status.  Nothing is loaded.",
+        )
+        parser.add_argument(
+            "--file-c-chunk-size",
+            type=int,
+            default=self.file_c_chunk_size,
+            help=(
+                f"Controls the number of File C records processed in a single batch.  Theoretically, "
+                f"bigger should be faster... right up until you run out of memory.  Balance carefully.  "
+                f"Default is {self.file_c_chunk_size:,}."
+            ),
         )
 
-        broker_submission_data = broker_cursor.fetchall()
+        parser.epilog = (
+            "And to answer your next question, yes this can be run standalone.  The parallelization "
+            "code is pretty minimal and should not add significant time to the overall run time of "
+            "serial submission loads."
+        )
 
-        missing_submissions = []
-        failed_submissions = []
-        for next_broker_sub in broker_submission_data:
-            submission_id = next_broker_sub[0]
-            try:
-                certify_date = next_broker_sub[1].replace(tzinfo=pytz.UTC)
-                cgac = next_broker_sub[2]
-                frec = next_broker_sub[3]
+    def handle(self, *args, **options):
+        self.record_options(options)
 
-                api_cursor.execute(
-                    "SELECT update_date FROM submission_attributes WHERE broker_submission_id = {}".format(
-                        submission_id
-                    )
-                )
-
-                if api_cursor.rowcount:
-                    most_recently_loaded_date = api_cursor.fetchone()[0].replace(tzinfo=pytz.UTC)
-                else:
-                    most_recently_loaded_date = datetime(2000, 1, 1).replace(tzinfo=pytz.UTC)
-
-                if frec:
-                    broker_cursor.execute("SELECT agency_name FROM frec WHERE frec_code = '{}'".format(frec))
-                else:
-                    broker_cursor.execute("SELECT agency_name FROM cgac WHERE cgac_code = '{}'".format(cgac))
-
-                agency_name = broker_cursor.fetchone()[0]
-
-                if certify_date > most_recently_loaded_date:
-                    missing_submissions.append((submission_id, agency_name, certify_date, most_recently_loaded_date))
-            except Exception:
-                logger.exception("Submission ID {} failed in pull from broker".format(submission_id))
-                failed_submissions.append(str(submission_id))
-
-        if len(missing_submissions):
-            logger.info("Total missing submissions: {}".format(len(missing_submissions)))
-            logger.info("-----------------------------------")
-            for submission in missing_submissions:
-                logger.info(
-                    "Submission ID {} ({})\tCertified: {}".format(submission[0], submission[1], submission[2].date())
-                )
-            logger.info("-----------------------------------")
-        else:
-            logger.info("No DABS to load")
-
-        # Data modification happens here, if you don't flag '--safe'
-        # The submission loader is atomic, so one of these failing will not affect subsequent submissions
-        if options["safe"]:
-            logger.info("Exiting script before data load occurs in accordance with the --safe flag.")
+        self.report_queue_status()
+        if self.report_queue_status_only:
             return
 
-        for submission in missing_submissions:
-            submission_id = submission[0]
-            try:
-                call_command("load_submission", submission_id)
-            except SystemExit:
-                logger.info("Submission failed to load: {}".format(submission_id))
-                failed_submissions.append(str(submission_id))
-            except Exception:
-                logger.exception("Submission {} failed to load".format(submission_id))
-                failed_submissions.append(str(submission_id))
+        self.reset_abandoned_locks()
 
-        if failed_submissions:
-            logger.error(
-                "Script completed with the following submissions failures: {}".format(", ".join(failed_submissions))
-            )
-            raise SystemExit(3)
+        if self.submission_ids:
+            self.add_specific_submissions_to_queue()
+            processed_count = self.load_specific_submissions()
         else:
-            logger.info("Script completed with no failures")
+            since_datetime = self.start_datetime or self.calculate_load_submissions_since_datetime()
+            self.add_submissions_since_datetime_to_queue(since_datetime)
+            processed_count = self.load_incremental_submissions()
+
+        ready, in_progress, abandoned, failed, unrecognized = dlqh.get_queue_status()
+        failed_unrecognized_and_abandoned_count = len(failed) + len(unrecognized) + len(abandoned)
+        in_progress_count = len(in_progress)
+
+        self.update_final_of_fy(processed_count, in_progress_count)
+
+        # Only return unstable state if something's in a bad state and we're the last one standing.
+        # Should cut down on Slack noise a bit.
+        if failed_unrecognized_and_abandoned_count > 0 and in_progress_count == 0:
+            raise SystemExit(3)
+
+    def record_options(self, options):
+        self.submission_ids = options.get("submission_ids")
+        self.incremental = options.get("incremental")
+        self.start_datetime = options.get("start_datetime")
+        self.report_queue_status_only = options.get("report_queue_status_only")
+        self.file_c_chunk_size = options.get("file_c_chunk_size")
+        self.processor_id = f"{now()}/{get_random_string()}"
+
+        logger.info(f'processor_id = "{self.processor_id}"')
+
+    @staticmethod
+    def report_queue_status():
+        """
+        Logs various information about the state of the submission queue.  Returns a count of failed
+        and unrecognized submissions so the caller can whine about it if they're so inclined.
+        """
+        ready, in_progress, abandoned, failed, unrecognized = dlqh.get_queue_status()
+        overall_count = sum(len(s) for s in (ready, in_progress, abandoned, failed, unrecognized))
+
+        msg = [
+            "The current queue status is as follows:\n",
+            f"There are {overall_count:,} total submissions in the queue.",
+            f"   {len(ready):,} are ready but have not yet started processing.",
+            f"   {len(in_progress):,} are in progress.",
+            f"   {len(abandoned):,} have been abandoned.",
+            f"   {len(failed):,} have FAILED.",
+            f"   {len(unrecognized):,} are in an unrecognized state.",
+        ]
+
+        def log_submission_ids(submissions, message):
+            if submissions:
+                caveat = f" (first {DISPLAY_CAP:,} shown)" if len(submissions) > DISPLAY_CAP else ""
+                submissions = ", ".join(str(s) for s in submissions[:DISPLAY_CAP])
+                msg.extend(["", f"The following submissions {message}{caveat}: {submissions}"])
+
+        log_submission_ids(in_progress, "are in progress")
+        log_submission_ids(abandoned, "have been abandoned")
+        log_submission_ids(failed, "have failed")
+        log_submission_ids(unrecognized, "are in an unrecognized state")
+
+        logger.info("\n".join(msg) + "\n")
+
+    @staticmethod
+    def reset_abandoned_locks():
+        count = dlqh.reset_abandoned_locks()
+        if count > 0:
+            logger.info(f"Reset {count:,} abandoned locks.")
+        return count
+
+    def add_specific_submissions_to_queue(self):
+        with transaction.atomic():
+            added = dlqh.add_submission_ids(self.submission_ids)
+            dlqh.mark_force_reload(self.submission_ids)
+        count = len(self.submission_ids)
+        logger.info(
+            f"Received {count:,} submission ids on the command line.  {added:,} were "
+            f"added to the queue.  {count - added:,} already existed."
+        )
+
+    def load_specific_submissions(self):
+        processed_count = 0
+        for submission_id in self.submission_ids:
+            count = dlqh.start_processing(submission_id, self.processor_id)
+            if count == 0:
+                logger.info(f"Submission {submission_id} has already been picked up by another processor.  Skipping.")
+            else:
+                self.load_submission(submission_id, force_reload=True)
+                processed_count += 1
+        return processed_count
+
+    @staticmethod
+    def add_submissions_since_datetime_to_queue(since_datetime):
+        if since_datetime is None:
+            logger.info("No records found in submission_attributes.  Performing a full load.")
+        else:
+            logger.info(f"Performing incremental load starting from {since_datetime}.")
+        submission_ids = get_new_or_updated_submission_ids(since_datetime)
+        added = dlqh.add_submission_ids(submission_ids)
+        count = len(submission_ids)
+        logger.info(
+            f"Identified {count:,} new or updated submission ids in Broker.  {added:,} were "
+            f"added to the queue.  {count - added:,} already existed."
+        )
+
+    def load_incremental_submissions(self):
+        processed_count = 0
+        while True:
+            submission_id, force_reload = dlqh.claim_next_available_submission(self.processor_id, self.do_not_retry)
+            if submission_id is None:
+                logger.info("No more available submissions in the queue.  Exiting.")
+                break
+            self.load_submission(submission_id, force_reload)
+            processed_count += 1
+        return processed_count
+
+    def cancel_heartbeat_timer(self):
+        if self.heartbeat_timer:
+            self.heartbeat_timer.cancel()
+            self.heartbeat_timer = None
+
+    def start_heartbeat_timer(self, submission_id):
+        if self.heartbeat_timer:
+            self.cancel_heartbeat_timer()
+        self.heartbeat_timer = dlqh.HeartbeatTimer(submission_id, self.processor_id)
+        self.heartbeat_timer.start()
+
+    def load_submission(self, submission_id, force_reload):
+        """
+        Accepts a locked/claimed submission id, spins up a heartbeat thread, loads the submission,
+        returns True if successful or False if not.
+        """
+        args = ["--file-c-chunk-size", self.file_c_chunk_size, "--skip-final-of-fy-calculation"]
+        if force_reload:
+            args.append("--force-reload")
+        self.start_heartbeat_timer(submission_id)
+        try:
+            call_command("load_submission", submission_id, *args)
+        except (Exception, SystemExit) as e:
+            self.cancel_heartbeat_timer()
+            logger.exception(f"Submission {submission_id} failed to load")
+            dlqh.fail_processing(submission_id, self.processor_id, e)
+            self.do_not_retry.append(submission_id)
+            self.report_queue_status()
+            return False
+        self.cancel_heartbeat_timer()
+        dlqh.complete_processing(submission_id, self.processor_id)
+        self.report_queue_status()
+        return True
+
+    @staticmethod
+    def calculate_load_submissions_since_datetime():
+        since = SubmissionAttributes.objects.all().aggregate(Max("published_date"))["published_date__max"]
+        if since:
+            # In order to prevent skips, we're just always going to look back 30 days.  Since submission is a
+            # relatively low volume table, this should not cause any noticeable performance issues.
+            since -= timedelta(days=30)
+        return since
+
+    @staticmethod
+    def update_final_of_fy(processed_count, in_progress_count):
+        """
+        For performance and deadlocking reasons, we only update final_of_fy once the last
+        submission is processed.  To this end, only update final_of_fy if any loads were
+        performed and there's nothing processable left in the queue.
+        """
+        if processed_count < 1:
+            logger.info("No work performed.  Not updating final_of_fy.")
+            return
+        if in_progress_count > 0:
+            logger.info("Submissions still in progress.  Not updating final_of_fy.")
+            return
+        logger.info("Updating final_of_fy")
+        populate_final_of_fy()
+        logger.info(f"Finished updating final_of_fy.")

@@ -170,6 +170,8 @@ def awards_and_transactions(db):
         "multiple_or_single_aw_desc": "MULTIPLE AWARD",
         "naics": "333911",
         "naics_description": "PUMP AND PUMPING EQUIPMENT MANUFACTURING",
+        "national_interest_action": "H2020K",
+        "national_interest_desc": "HURRICANE KIRK",
         "number_of_offers_received": None,
         "ordering_period_end_date": "2025-06-30",
         "other_than_full_and_open_c": None,
@@ -369,12 +371,14 @@ expected_response_idv = {
     },
     "awarding_agency": {
         "id": 1,
+        "has_agency_page": False,
         "toptier_agency": {"name": "agency name", "abbreviation": "some other stuff", "code": "abc"},
         "subtier_agency": {"name": "agency name", "abbreviation": "some other stuff", "code": "def"},
         "office_agency_name": "awarding_office",
     },
     "funding_agency": {
         "id": 1,
+        "has_agency_page": False,
         "toptier_agency": {"name": "agency name", "abbreviation": "some other stuff", "code": "abc"},
         "subtier_agency": {"name": "agency name", "abbreviation": "some other stuff", "code": "def"},
         "office_agency_name": "funding_office",
@@ -469,6 +473,8 @@ expected_response_idv = {
         "multiple_or_single_award_description": "MULTIPLE AWARD",
         "naics": "333911",
         "naics_description": "PUMP AND PUMPING EQUIPMENT MANUFACTURING",
+        "national_interest_action": "H2020K",
+        "national_interest_action_description": "HURRICANE KIRK",
         "number_of_offers_received": None,
         "other_than_full_and_open": None,
         "other_than_full_and_open_description": None,
@@ -517,6 +523,10 @@ expected_response_idv = {
         "subtier_code": {},
         "base_code": {"description": "HOSE, PIPE, TUBE, LUBRICATION, AND RAILING FITTINGS", "code": "4730"},
     },
+    "account_obligations_by_defc": [],
+    "account_outlays_by_defc": [],
+    "total_account_obligation": 0,
+    "total_account_outlay": 0,
 }
 
 

@@ -10,6 +10,13 @@ These endpoints are used to power USAspending.gov's download center.
 Generate files and return metadata using filters on custom account
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
         + `account_level` (required, enum[string])
             The account level is used to filter for a specific type of file.
@@ -23,7 +30,7 @@ Generate files and return metadata using filters on custom account
                 + `csv`
                 + `tsv`
                 + `pstxt`
-        + `filters` (required, FilterObject)
+        + `filters` (required, AdvancedFilterObject)
             The filters used to filter the data
     + Body
 
@@ -33,7 +40,8 @@ Generate files and return metadata using filters on custom account
                 "filters": {
                     "fy": "2018",
                     "quarter": "1",
-                    "submission_types": ["account_balances", "award_financial"]
+                    "submission_types": ["account_balances", "award_financial"],
+                    "def_codes": ["L", "M", "O"]
                 }
             }
 
@@ -64,7 +72,8 @@ Generate files and return metadata using filters on custom account
                     "file_format": "csv",
                     "filters": {
                         "fy": 2018,
-                        "quarter": 1
+                        "quarter": 1,
+                        "def_codes": ["L", "M", "O"]
                     },
                     "request_type": "account"
                 }
@@ -74,9 +83,9 @@ Generate files and return metadata using filters on custom account
 
 # Data Structures
 
-## FilterObject (object)
+## AdvancedFilterObject (object)
 + `agency` (optional, string)
-    The agency to filter by. This field is an internal id.
+    The agency on which to filter.  This field expects an internal toptier agency identifier also known as the `toptier_agency_id`.
     + Default: `all`
 + `federal_account`(optional, string)
     This field is an internal id.
@@ -87,9 +96,48 @@ Generate files and return metadata using filters on custom account
         + `award_financial`
 + `fy` (required, string)
     The fiscal year to filter by in the format `YYYY`
-+ `quarter` (required, enum[string])
++ `quarter` (optional, enum[string])
+    Either `quarter` or `period` is required.  Do not supply both.   Note that both monthly and quarterly submissions will be included in the resulting download file even if only `quarter` is provided.
     + Members
         + `1`
         + `2`
         + `3`
         + `4`
++ `period` (optional, enum[string])
+    Either `quarter` or `period` is required.  Do not supply both.  Agencies cannot submit data for period 1 so it is disallowed as a query filter.   Note that both monthly and quarterly submissions will be included in the resulting download file even if only `period` is provided.
+    + Members
+        + `2`
+        + `3`
+        + `4`
+        + `5`
+        + `6`
+        + `7`
+        + `8`
+        + `9`
+        + `10`
+        + `11`
+        + `12`
++ `def_codes` (optional, array[string])
+    The Disaster Emergency Fund Code (def_codes) filter is optional. If no def_codes are provided the request will return records associated with all def_codes. If an array of valid members is provided the request will return records associated with only the def_codes provided.
+    + Members
+        + `9`
+        + `A`
+        + `B`
+        + `C`
+        + `D`
+        + `E`
+        + `F`
+        + `G`
+        + `H`
+        + `I`
+        + `J`
+        + `K`
+        + `L`
+        + `M`
+        + `N`
+        + `O`
+        + `P`
+        + `Q`
+        + `R`
+        + `S`
+        + `T`

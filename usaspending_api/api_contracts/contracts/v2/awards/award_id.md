@@ -36,8 +36,10 @@ This endpoint returns a list of data that is associated with the award profile p
                 "base_exercised_options": 61241.34,
                 "base_and_all_options": 61241.34,
                 "parent_award": {
-                    "agency_id": "9700",
+                    "agency_id": 1173,
                     "agency_name": "Department of Defense",
+                    "sub_agency_id": "9700",
+                    "sub_agency_name": "Department of Defense",
                     "award_id": 69513842,
                     "generated_unique_award_id": "CONT_IDV_SPE2DX16D1500_9700",
                     "idv_type_description": "IDC",
@@ -75,6 +77,8 @@ This endpoint returns a list of data that is associated with the award profile p
                     "multi_year_contract": "N",
                     "consolidated_contract": "N",
                     "type_of_contract_pricing": "J",
+                    "national_interest_action": "NONE",
+                    "national_interest_action_description": "NONE",
                     "multiple_or_single_award_description": null,
                     "solicitation_procedures_description": "NEGOTIATED PROPOSAL/QUOTE",
                     "extent_competed_description": "FULL AND OPEN COMPETITION",
@@ -116,6 +120,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 },
                 "funding_agency": {
                     "id": 1219,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Defense",
                         "code": "097",
@@ -130,6 +135,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 },
                 "awarding_agency": {
                     "id": 1219,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Defense",
                         "code": "097",
@@ -145,14 +151,14 @@ This endpoint returns a list of data that is associated with the award profile p
                 "period_of_performance": {
                     "start_date": "2016-06-24",
                     "end_date": "2016-06-27",
-                    "last_modified_date": "2016-06-27 10:13:23",
+                    "last_modified_date": "2019-10-27 20:06:44",
                     "potential_end_date": "2016-06-27 00:00:00"
                 },
                 "recipient": {
-                    "recipient_hash": "7aa9e102-b0b4-6fa9-aaf8-9d4047a84544-C",
+                    "recipient_hash": "a704b6c0-d296-fc75-79e9-7a9546b3b634-C",
                     "recipient_name": "MCKESSON CORPORATION",
                     "recipient_unique_id": "105919864",
-                    "parent_recipient_hash": "a10af851-96dd-8b60-d4ad-a1a1cdcfa97f-P",
+                    "parent_recipient_hash": "8b51f520-c590-0517-1e0d-45336a1b9332-P",
                     "parent_recipient_name": "MCKESSON CORPORATION",
                     "parent_recipient_unique_id": "177667227",
                     "business_categories": [
@@ -246,7 +252,29 @@ This endpoint returns a list of data that is associated with the award profile p
                         "code": "325411",
                         "description": "Medicinal and Botanical Manufacturing"
                     }
-                }
+                },
+                "total_account_outlay": 3.0,
+                "total_account_obligation": 3.0,
+                "account_outlays_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ],
+                "account_obligations_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ]
             }
 
 + Request A request with a financial assistance id (application/json)
@@ -270,6 +298,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 "total_subaward_amount": null,
                 "awarding_agency": {
                     "id": 153,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Agriculture",
                         "code": "012",
@@ -284,6 +313,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 },
                 "funding_agency": {
                     "id": 153,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Agriculture",
                         "code": "012",
@@ -297,7 +327,7 @@ This endpoint returns a list of data that is associated with the award profile p
                     "office_agency_name": null
                 },
                 "recipient": {
-                    "recipient_hash": null,
+                    "recipient_hash": "6e4362a8-7dd7-8d86-d2ff-8faa5eefe0aa-R",
                     "recipient_name": "REDACTED DUE TO PII",
                     "recipient_unique_id": null,
                     "parent_recipient_hash": null,
@@ -396,7 +426,29 @@ This endpoint returns a list of data that is associated with the award profile p
                     "address_line3": null,
                     "foreign_province": null,
                     "foreign_postal_code": null
-                }
+                },
+                "total_account_outlay": 3.0,
+                "total_account_obligation": 3.0,
+                "account_outlays_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ],
+                "account_obligations_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ]
             }
 
 + Request A request with an IDV id (application/json)
@@ -452,6 +504,8 @@ This endpoint returns a list of data that is associated with the award profile p
                     "multi_year_contract": null,
                     "consolidated_contract": "N",
                     "type_of_contract_pricing": "1",
+                    "national_interest_action": "NONE",
+                    "national_interest_action_description": "NONE",
                     "multiple_or_single_award_description": "SINGLE AWARD",
                     "solicitation_procedures_description": null,
                     "extent_competed_description": null,
@@ -493,6 +547,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 },
                 "funding_agency": {
                     "id": 1196,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Defense",
                         "code": "097",
@@ -507,6 +562,7 @@ This endpoint returns a list of data that is associated with the award profile p
                 },
                 "awarding_agency": {
                     "id": 1196,
+                    "has_agency_page": true,
                     "toptier_agency": {
                         "name": "Department of Defense",
                         "code": "097",
@@ -526,10 +582,10 @@ This endpoint returns a list of data that is associated with the award profile p
                     "potential_end_date": null
                 },
                 "recipient": {
-                    "recipient_hash": "fc621300-584a-1b6f-0e5f-aba6b0deb70a-C",
+                    "recipient_hash": "fcc89367-99ce-1509-091c-ce26fb52556b-C",
                     "recipient_name": "GRADLYN - G.K. AIRFREIGHT SERVICE GMBH",
                     "recipient_unique_id": "317771921",
-                    "parent_recipient_hash": "fc621300-584a-1b6f-0e5f-aba6b0deb70a-P",
+                    "parent_recipient_hash": "fcc89367-99ce-1509-091c-ce26fb52556b-P",
                     "parent_recipient_name": "GK AIRFREIGHT-SERVICE GRADLYN KENNELS GMBH",
                     "parent_recipient_unique_id": "317771921",
                     "business_categories": [
@@ -551,7 +607,7 @@ This endpoint returns a list of data that is associated with the award profile p
                         "address_line2": "BUILDING 458",
                         "address_line3": null,
                         "congressional_code": null,
-                        "zip4": null,
+                        "zip4": "60549",
                         "zip5": null,
                         "foreign_postal_code": null,
                         "foreign_province": null
@@ -626,12 +682,35 @@ This endpoint returns a list of data that is associated with the award profile p
                         "code": "488510",
                         "description": "Freight Transportation Arrangement"
                     }
-                }
+                },
+                "total_account_outlay": 3.0,
+                "total_account_obligation": 3.0,
+                "account_outlays_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ],
+                "account_obligations_by_defc": [
+                    {
+                        "code": "P",
+                        "amount": 2.0
+                    },
+                    {
+                        "code": "L",
+                        "amount": 1.0
+                    }
+                ]
             }
 
 # Data Structures
 
 ## ContractResponse (object)
++ `id` (required, number)
 + `category` (required, enum[string])
     + Members
         + `contract`
@@ -665,8 +744,13 @@ This endpoint returns a list of data that is associated with the award profile p
     `null` if the contract has no parent
 + `naics_hierarchy` (required, NAICSHierarchy, fixed-type)
 + `psc_hierarchy` (required, PSCHierarchy, fixed-type)
++ `total_account_outlay` (required, number)
++ `total_account_obligation` (required, number)
++ `account_obligations_by_defc` (required, array[DEFCAmount], fixed-type)
++ `account_outlays_by_defc` (required, array[DEFCAmount], fixed-type)
 
 ## IDVResponse (object)
++ `id` (required, number)
 + `category` (required, enum[string])
     + Members
         + `idv`
@@ -704,8 +788,13 @@ This endpoint returns a list of data that is associated with the award profile p
     `null` if the idv has no parent
 + `naics_hierarchy` (required, NAICSHierarchy, fixed-type)
 + `psc_hierarchy` (required, PSCHierarchy, fixed-type)
++ `total_account_outlay` (required, number)
++ `total_account_obligation` (required, number)
++ `account_obligations_by_defc` (required, array[DEFCAmount], fixed-type)
++ `account_outlays_by_defc` (required, array[DEFCAmount], fixed-type)
 
 ## FinancialAssistanceResponse (object)
++ `id` (required, number)
 + `category` (required, enum[string])
     + Members
         + `loans`
@@ -752,6 +841,10 @@ This endpoint returns a list of data that is associated with the award profile p
 + `place_of_performance` (required, Location, fixed-type)
 + `executive_details` (required, Executive, fixed-type)
 + `cfda_info` (required, array[CFDAInfo], fixed-type)
++ `total_account_outlay` (required, number)
++ `total_account_obligation` (required, number)
++ `account_obligations_by_defc` (required, array[DEFCAmount], fixed-type)
++ `account_outlays_by_defc` (required, array[DEFCAmount], fixed-type)
 
 ## CFDAInfo (object)
 + `applicant_eligibility` (required, string, nullable)
@@ -771,14 +864,16 @@ This endpoint returns a list of data that is associated with the award profile p
 
 ## Agency (object)
 + `id` (required, number)
++ `has_agency_page` (required, boolean)
 + `toptier_agency` (required, TopTierAgency, nullable)
 + `subtier_agency` (required, SubTierAgency, nullable)
 + `office_agency_name` (required, string, nullable)
 
 ## ParentDetails (object)
-+ `agency_id` (required, string)
-    This is the subtier agency id
++ `agency_id` (required, number)
 + `agency_name` (required, string)
++ `sub_agency_id` (required, string)
++ `sub_agency_name` (required, string)
 + `award_id` (required, number, nullable)
 + `generated_unique_award_id` (required, string)
 + `idv_type_description` (required, string, nullable)
@@ -788,10 +883,12 @@ This endpoint returns a list of data that is associated with the award profile p
 
 ## TopTierAgency (object)
 + `name` (required, string, nullable)
++ `code` (required, string)
 + `abbreviation` (required, string, nullable)
 
 ## SubTierAgency (object)
 + `name` (required, string, nullable)
++ `code` (required, string)
 + `abbreviation` (required, string, nullable)
 
 ## Recipient (object)
@@ -881,6 +978,8 @@ This endpoint returns a list of data that is associated with the award profile p
 + `multiple_or_single_award_description` (required, string, nullable)
 + `naics` (required, string, nullable)
 + `naics_description` (required, string, nullable)
++ `national_interest_action` (required, string, nullable)
++ `national_interest_action_description` (required, string, nullable)
 + `number_of_offers_received` (required, string, nullable)
 + `other_than_full_and_open` (required, string, nullable)
 + `other_than_full_and_open_description` (required, string, nullable)
@@ -927,3 +1026,7 @@ This endpoint returns a list of data that is associated with the award profile p
 ## HierarchyLeaf (object)
 + `description` (optional, string)
 + `code` (optional, string)
+
+## DEFCAmount (object)
++ `code` (required, string)
++ `amount` (required, number)

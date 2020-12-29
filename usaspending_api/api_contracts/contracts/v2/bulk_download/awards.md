@@ -11,10 +11,6 @@ This route sends a request to the backend to begin generating a zipfile of award
 
 + Request (application/json)
     + Attributes (object)
-        + `award_levels` (required, array[enum[string]])
-            + Members
-                + `prime_awards`
-                + `sub_awards`
         + `filters` (required, Filters, fixed-type)
         + `columns` (optional, array[string])
         + `file_format` (optional, enum[string])
@@ -28,15 +24,47 @@ This route sends a request to the backend to begin generating a zipfile of award
 
             {
                 "filters": {
-                    "agency": 50,
-                    "award_types": ["contracts", "grants"],
+                    "prime_award_types": [
+                        "A",
+                        "B",
+                        "C",
+                        "D",
+                        "IDV_A",
+                        "IDV_B",
+                        "IDV_B_A",
+                        "IDV_B_B",
+                        "IDV_B_C",
+                        "IDV_C",
+                        "IDV_D",
+                        "IDV_E",
+                        "02",
+                        "03",
+                        "04",
+                        "05",
+                        "10",
+                        "06",
+                        "07",
+                        "08",
+                        "09",
+                        "11"
+                    ],
+                    "sub_award_types": [],
+                    "date_type": "action_date",
                     "date_range": {
-                        "start_date": "2019-01-01",
-                        "end_date": "2019-12-31"
+                        "start_date": "2019-10-01",
+                        "end_date": "2020-09-30"
                     },
-                    "date_type": "action_date"
+                    "agencies": [
+                        {
+                            "type": "funding",
+                            "tier": "subtier",
+                            "name": "Animal and Plant Health Inspection Service",
+                            "toptier_name": "Department of Agriculture"
+                        }
+                    ]
                 },
-                "award_levels": ["prime_awards", "sub_awards"]
+                "columns": [],
+                "file_format": "csv"
             }
 
 
@@ -52,42 +80,58 @@ This route sends a request to the backend to begin generating a zipfile of award
             The JSON object used when processing the download.
 
     + Body
-            
+
             {
-                "status_url": "http://localhost:8000/api/v2/download/status?file_name=534_PrimeTransactionsAndSubawards_2020-01-13_H21M04S54995657.zip",
-                "file_name": "534_PrimeTransactionsAndSubawards_2020-01-13_H21M04S54995657.zip",
-                "file_url": "/csv_downloads/534_PrimeTransactionsAndSubawards_2020-01-13_H21M04S54995657.zip",
+                "status_url": "https://api.usaspending.gov/api/v2/download/status?file_name=All_PrimeTransactions_2020-09-16_H15M20S52934397.zip",
+                "file_name": "All_PrimeTransactions_2020-09-16_H15M20S52934397.zip",
+                "file_url": "https://files.usaspending.gov/generated_downloads/dev/All_PrimeTransactions_2020-09-16_H15M20S52934397.zip",
                 "download_request": {
-                    "agency": 50,
                     "columns": [],
                     "download_types": [
-                        "prime_awards",
-                        "sub_awards"
+                        "prime_awards"
                     ],
                     "file_format": "csv",
                     "filters": {
                         "agencies": [
                             {
-                                "name": "Office of the Federal Coordinator for Alaska Natural Gas Transportation Projects",
-                                "tier": "toptier",
-                                "type": "awarding"
+                                "name": "Animal and Plant Health Inspection Service",
+                                "tier": "subtier",
+                                "toptier_name": "Department of Agriculture",
+                                "type": "funding"
                             }
                         ],
-                        "award_type_codes": [
-                            "02",
-                            "03",
-                            "04",
-                            "05",
-                            "A",
-                            "B",
-                            "C",
-                            "D"
-                        ],
+                        "prime_and_sub_award_types": {
+                            "prime_awards": [
+                                "02",
+                                "03",
+                                "04",
+                                "05",
+                                "06",
+                                "07",
+                                "08",
+                                "09",
+                                "10",
+                                "11",
+                                "A",
+                                "B",
+                                "C",
+                                "D",
+                                "IDV_A",
+                                "IDV_B",
+                                "IDV_B_A",
+                                "IDV_B_B",
+                                "IDV_B_C",
+                                "IDV_C",
+                                "IDV_D",
+                                "IDV_E"
+                            ],
+                            "sub_awards": []
+                        },
                         "time_period": [
                             {
                                 "date_type": "action_date",
-                                "end_date": "2019-12-31",
-                                "start_date": "2019-01-01"
+                                "end_date": "2020-09-30",
+                                "start_date": "2019-10-01"
                             }
                         ]
                     },
@@ -100,16 +144,31 @@ This route sends a request to the backend to begin generating a zipfile of award
 ## Filter Objects
 
 ### Filters (object)
-+ `agency` (required, string)
-    Agency database id to include, 'all' is also an option to include all agencies
-+ `award_types` (required, array[enum[string]])
++ `agencies` (required, array[Agency], fixed-type)
++ `prime_award_types` (optional, array[enum[string]])
     + Members
-        + `contracts`
-        + `direct_payments`
-        + `grants`
-        + `idvs`
-        + `loans`
-        + `other_financial_assistance`
+        + `IDV_A`
+        + `IDV_B`
+        + `IDV_B_A`
+        + `IDV_B_B`
+        + `IDV_B_C`
+        + `IDV_C`
+        + `IDV_D`
+        + `IDV_E`
+        + `02`
+        + `03`
+        + `04`
+        + `05`
+        + `06`
+        + `07`
+        + `08`
+        + `09`
+        + `10`
+        + `11`
+        + `A`
+        + `B`
+        + `C`
+        + `D`
 + `date_range` (required, TimePeriod, fixed-type)
     Object with start and end dates
 + `date_type` (required, enum[string])
@@ -118,9 +177,19 @@ This route sends a request to the backend to begin generating a zipfile of award
         + `last_modified_date`
 + `keyword` (optional, string)
 + `place_of_performance_locations` (optional, array[Location], fixed-type)
++ `place_of_performance_scope` (optional, enum[string])
+    + Members
+        + `domestic`
+        + `foreign`
 + `recipient_locations` (optional, array[Location], fixed-type)
-+ `sub_agency` (optional, string)
-    Sub-agency name to include (based on the agency filter)
++ `recipient_scope` (optional, enum[string])
+    + Members
+        + `domestic`
+        + `foreign`
++ `sub_award_types` (optional, array[enum[string]])
+    + Members
+        + `grant`
+        + `procurement`
 
 ### TimePeriod (object)
 + `start_date` (required, string)
@@ -133,3 +202,16 @@ This route sends a request to the backend to begin generating a zipfile of award
 + `city` (optional, string)
 + `district` (optional, string)
 + `zip` (optional, string)
+
+### Agency (object)
++ `name` (required, string)
++ `tier` (required, enum[string])
+    + Members
+        + `toptier`
+        + `subtier`
++ `type` (required, enum[string])
+    + Members
+        + `funding`
+        + `awarding`
++ `toptier_name` (optional, string)
+    Provided when the `name` belongs to a subtier agency

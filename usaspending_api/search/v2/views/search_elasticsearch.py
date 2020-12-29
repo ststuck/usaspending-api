@@ -7,14 +7,20 @@ from rest_framework.views import APIView
 
 from usaspending_api.common.api_versioning import api_transformations, API_TRANSFORM_FUNCTIONS
 from usaspending_api.common.cache_decorator import cache_response
-from usaspending_api.common.exceptions import ElasticsearchConnectionException, InvalidParameterException
-from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata
-from usaspending_api.common.validator.award_filter import AWARD_FILTER
+from usaspending_api.common.elasticsearch.search_wrappers import TransactionSearch
+from usaspending_api.common.exceptions import (
+    InvalidParameterException,
+    UnprocessableEntityException,
+)
+from usaspending_api.common.helpers.generic_helper import get_simple_pagination_metadata, get_generic_filters_message
+from usaspending_api.common.query_with_filters import QueryWithFilters
+from usaspending_api.common.validator.award_filter import AWARD_FILTER, AWARD_FILTER_NO_RECIPIENT_ID
 from usaspending_api.common.validator.pagination import PAGINATION
 from usaspending_api.common.validator.tinyshield import TinyShield
-from usaspending_api.search.v2.elasticsearch_helper import search_transactions
 from usaspending_api.search.v2.elasticsearch_helper import spending_by_transaction_count
+from usaspending_api.search.v2.es_sanitization import es_minimal_sanitize
 from usaspending_api.search.v2.elasticsearch_helper import spending_by_transaction_sum_and_count
+from usaspending_api.awards.v2.lookups.elasticsearch_lookups import TRANSACTIONS_SOURCE_LOOKUP, TRANSACTIONS_LOOKUP
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +55,16 @@ class SpendingByTransactionVisualizationViewSet(APIView):
                 m["optional"] = False
         validated_payload = TinyShield(models).block(request.data)
 
+        record_num = (validated_payload["page"] - 1) * validated_payload["limit"]
+        if record_num >= settings.ES_TRANSACTIONS_MAX_RESULT_WINDOW:
+            raise UnprocessableEntityException(
+                "Page #{page} of size {limit} is over the maximum result limit ({es_limit}). Consider using custom data downloads to obtain large data sets.".format(
+                    page=validated_payload["page"],
+                    limit=validated_payload["limit"],
+                    es_limit=settings.ES_TRANSACTIONS_MAX_RESULT_WINDOW,
+                )
+            )
+
         if validated_payload["sort"] not in validated_payload["fields"]:
             raise InvalidParameterException("Sort value not found in fields: {}".format(validated_payload["sort"]))
 
@@ -67,20 +83,45 @@ class SpendingByTransactionVisualizationViewSet(APIView):
                     },
                 }
             )
-
+        sorts = {TRANSACTIONS_LOOKUP[validated_payload["sort"]]: validated_payload["order"]}
         lower_limit = (validated_payload["page"] - 1) * validated_payload["limit"]
-        success, response, total = search_transactions(validated_payload, lower_limit, validated_payload["limit"] + 1)
-        if not success:
-            raise InvalidParameterException(response)
+        upper_limit = (validated_payload["page"]) * validated_payload["limit"] + 1
+        validated_payload["filters"]["keyword_search"] = [
+            es_minimal_sanitize(x) for x in validated_payload["filters"]["keywords"]
+        ]
+        validated_payload["filters"].pop("keywords")
+        filter_query = QueryWithFilters.generate_transactions_elasticsearch_query(validated_payload["filters"])
+        search = TransactionSearch().filter(filter_query).sort(sorts)[lower_limit:upper_limit]
+        response = search.handle_execute()
+        return Response(self.build_elasticsearch_result(validated_payload, response))
 
-        metadata = get_simple_pagination_metadata(len(response), validated_payload["limit"], validated_payload["page"])
-
+    def build_elasticsearch_result(self, request, response) -> dict:
         results = []
-        for transaction in response[: validated_payload["limit"]]:
-            results.append(transaction)
+        for res in response:
+            hit = res.to_dict()
+            # Parsing API response values from ES query result JSON
+            # We parse the `hit` (result from elasticsearch) to get the award type, use the type to determine
+            # which lookup dict to use, and then use that lookup to retrieve the correct value requested from `fields`
+            row = {}
+            for field in request["fields"]:
+                row[field] = hit.get(TRANSACTIONS_SOURCE_LOOKUP[field])
+            row["generated_internal_id"] = hit["generated_unique_award_id"]
+            row["internal_id"] = hit["award_id"]
 
-        response = {"limit": validated_payload["limit"], "results": results, "page_metadata": metadata}
-        return Response(response)
+            results.append(row)
+
+        metadata = get_simple_pagination_metadata(len(response), request["limit"], request["page"])
+
+        return {
+            "limit": request["limit"],
+            "results": results[: request["limit"]],
+            "page_metadata": metadata,
+            "messages": [
+                get_generic_filters_message(
+                    request["filters"].keys(), [elem["name"] for elem in AWARD_FILTER_NO_RECIPIENT_ID]
+                )
+            ],
+        }
 
 
 @api_transformations(api_version=API_VERSION, function_list=API_TRANSFORM_FUNCTIONS)
@@ -116,8 +157,6 @@ class TransactionSummaryVisualizationViewSet(APIView):
         validated_payload = TinyShield(models).block(request.data)
 
         results = spending_by_transaction_sum_and_count(validated_payload)
-        if not results:
-            raise ElasticsearchConnectionException("Error generating the transaction sums and counts")
         return Response({"results": results})
 
 
@@ -145,6 +184,4 @@ class SpendingByTransactionCountVisualizaitonViewSet(APIView):
         ]
         validated_payload = TinyShield(models).block(request.data)
         results = spending_by_transaction_count(validated_payload)
-        if not results:
-            raise ElasticsearchConnectionException("Error during the aggregations")
         return Response({"results": results})

@@ -1,10 +1,13 @@
 from django.db import models
+from django_cte import CTEManager
+from django.db.models import Q
 
 from usaspending_api.common.models import DataSourceTrackedModel
 
 
 class FinancialAccountsByAwards(DataSourceTrackedModel):
     financial_accounts_by_awards_id = models.AutoField(primary_key=True)
+    distinct_award_key = models.TextField(db_index=True)
     treasury_account = models.ForeignKey("accounts.TreasuryAppropriationAccount", models.CASCADE, null=True)
     submission = models.ForeignKey("submissions.SubmissionAttributes", models.CASCADE)
     award = models.ForeignKey("awards.Award", models.CASCADE, null=True, related_name="financial_set")
@@ -14,6 +17,14 @@ class FinancialAccountsByAwards(DataSourceTrackedModel):
     parent_award_id = models.TextField(blank=True, null=True)
     fain = models.TextField(blank=True, null=True)
     uri = models.TextField(blank=True, null=True)
+    disaster_emergency_fund = models.ForeignKey(
+        "references.DisasterEmergencyFundCode",
+        models.DO_NOTHING,
+        blank=True,
+        null=True,
+        db_index=True,
+        db_column="disaster_emergency_fund_code",
+    )
     ussgl480100_undelivered_orders_obligations_unpaid_fyb = models.DecimalField(
         max_digits=23, decimal_places=2, blank=True, null=True
     )
@@ -118,6 +129,36 @@ class FinancialAccountsByAwards(DataSourceTrackedModel):
     create_date = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     update_date = models.DateTimeField(auto_now=True, null=True)
 
+    objects = CTEManager()
+
     class Meta:
         managed = True
         db_table = "financial_accounts_by_awards"
+        index_together = [
+            # This index dramatically sped up disaster endpoint queries.  VERY IMPORTANT!  It needs
+            # to cover all of the fields being queried in order to eek out maximum performance.
+            [
+                "disaster_emergency_fund",
+                "submission",
+                "award",
+                "piid",
+                "fain",
+                "uri",
+                "parent_award_id",
+                "transaction_obligated_amount",
+                "gross_outlay_amount_by_award_cpe",
+            ]
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "submission",
+                    "distinct_award_key",
+                    "piid",
+                    "transaction_obligated_amount",
+                    "gross_outlay_amount_by_award_cpe",
+                ],
+                name="faba_subid_awardkey_sums_idx",
+                condition=Q(disaster_emergency_fund__in=["L", "M", "N", "O", "P"]),
+            )
+        ]

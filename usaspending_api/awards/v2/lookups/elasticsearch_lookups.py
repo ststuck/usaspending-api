@@ -8,7 +8,7 @@ from usaspending_api.awards.v2.lookups.lookups import all_award_types_mappings
 TRANSACTIONS_LOOKUP = {
     "Recipient Name": "recipient_name.keyword",
     "Action Date": "action_date",
-    "Transaction Amount": "transaction_amount",
+    "Transaction Amount": "federal_action_obligation",
     "Award Type": "type_description.keyword",
     "Awarding Agency": "awarding_toptier_agency_name.keyword",
     "Awarding Sub Agency": "awarding_subtier_agency_name.keyword",
@@ -17,12 +17,13 @@ TRANSACTIONS_LOOKUP = {
     "Issued Date": "period_of_performance_start_date",
     "Loan Value": "face_value_loan_guarantee",
     "Subsidy Cost": "original_loan_subsidy_cost",
-    "Mod": "modification_number",
+    "Mod": "modification_number.keyword",
     "Award ID": "display_award_id",
     "awarding_agency_id": "awarding_agency_id",
     "internal_id": "award_id",
     "generated_internal_id": "generated_unique_award_id",
     "Last Date to Order": "ordering_period_end_date",
+    "def_codes": "disaster_emergency_fund_codes",
 }
 
 base_mapping = {
@@ -47,6 +48,9 @@ base_mapping = {
     "Base Obligation Date": "date_signed",
     "prime_award_recipient_id": "prime_award_recipient_id",
     "generated_internal_id": "generated_unique_award_id",
+    "def_codes": "disaster_emergency_fund_codes",
+    "COVID-19 Obligations": "total_covid_obligation",
+    "COVID-19 Outlays": "total_covid_outlay",
 }
 contracts_mapping = {
     **base_mapping,

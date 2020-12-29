@@ -1,7 +1,7 @@
 import itertools
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Union
+from typing import Union, List
 
 from django.conf import settings
 from django.db.models import QuerySet
@@ -33,12 +33,18 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         max_iterations = settings.MAX_DOWNLOAD_LIMIT // size
         req_iterations = (total // size) + 1
         num_iterations = min(max(1, req_iterations), max_iterations)
+
+        # Setting the shard_size below works in this case because we are aggregating on a unique field. Otherwise, this
+        # would not work due to the number of records. Other places this is set are in the different spending_by
+        # endpoints which are either routed or contain less than 10k unique values, both allowing for the shard
+        # size to be manually set to 10k.
         for iteration in range(num_iterations):
             aggregation = A(
                 "terms",
                 field=cls._source_field,
                 include={"partition": iteration, "num_partitions": num_iterations},
                 size=size,
+                shard_size=size,
             )
             search.aggs.bucket("results", aggregation)
             response = search.handle_execute(retries=max_retries).to_dict()
@@ -75,10 +81,14 @@ class AwardsElasticsearchDownload(_ElasticsearchDownload):
     _search_type = AwardSearch
 
     @classmethod
-    def query(cls, filters: dict) -> QuerySet:
+    def query(cls, filters: dict, values: List[str] = None) -> QuerySet:
         base_queryset = AwardSearchView.objects.all()
         flat_ids = cls._get_download_ids(filters)
-        queryset = base_queryset.extra(where=[f'"awards"."id" = ANY(ARRAY{flat_ids}::INTEGER[])'])
+        queryset = base_queryset.extra(
+            where=[f'"vw_award_search"."award_id" = ANY(SELECT UNNEST(ARRAY{flat_ids}::INTEGER[]))']
+        )
+        if values:
+            queryset = queryset.values(*values)
         return queryset
 
 
@@ -91,5 +101,7 @@ class TransactionsElasticsearchDownload(_ElasticsearchDownload):
     def query(cls, filters: dict) -> QuerySet:
         base_queryset = UniversalTransactionView.objects.all()
         flat_ids = cls._get_download_ids(filters)
-        queryset = base_queryset.extra(where=[f'"transaction_normalized"."id" = ANY(ARRAY{flat_ids}::INTEGER[])'])
+        queryset = base_queryset.extra(
+            where=[f'"transaction_normalized"."id" = ANY(SELECT UNNEST(ARRAY{flat_ids}::INTEGER[]))']
+        )
         return queryset

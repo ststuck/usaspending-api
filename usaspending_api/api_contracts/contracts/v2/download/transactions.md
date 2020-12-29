@@ -10,6 +10,13 @@ This endpoint is used by the Advanced Search download page.
 This route sends a request to the backend to begin generating a zipfile of transaction data in CSV form for download.
 
 + Request (application/json)
+    + Schema
+
+            {
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "object"
+            }
+
     + Attributes (object)
         + `columns` (optional, array[string])
         + `filters` (required, Filters, fixed-type)
@@ -123,19 +130,22 @@ This route sends a request to the backend to begin generating a zipfile of trans
 + `federal_account_ids` (optional, array[string])
 + `keywords` (optional, array[string])
 + `legal_entities` (optional, array[string])
-+ `naics_codes` (optional, array[string])
++ `naics_codes` (optional, NAICSCodeObject)
 + `object_class_ids` (optional, array[string])
 + `place_of_performance_locations` (optional, array[Location], fixed-type)
 + `place_of_performance_scope` (optional, string)
 + `program_activity_ids` (optional, array[string])
 + `program_numbers` (optional, array[string])
-+ `psc_codes` (optional, array[string])
++ `psc_codes` (optional, enum[PSCCodeObject, array[string]])
+    Supports new PSCCodeObject or legacy array of codes.
 + `recipient_locations` (optional, array[Location], fixed-type)
 + `recipient_search_text` (optional, string)
 + `recipient_scope` (optional, string)
 + `recipient_type_names` (optional, array[string])
 + `set_aside_type_codes` (optional, array[string])
 + `time_period` (optional, array[TimePeriod], fixed-type)
++ `tas_codes` (optional, array[TASCodeObject], fixed-type)
++ `treasury_account_components` (optional, array[TreasuryAccountComponentsObject], fixed-type)
 
 ### AwardAmount (object)
 + `lower_bound` (optional, number)
@@ -151,6 +161,9 @@ This route sends a request to the backend to begin generating a zipfile of trans
     + Members
         + `funding`
         + `awarding`
++ `toptier_name` (optional, string)
+    Provided when the `name` belongs to a subtier agency
+
 
 ### TimePeriod (object)
 + `start_date` (required, string)
@@ -164,3 +177,31 @@ This route sends a request to the backend to begin generating a zipfile of trans
 + `city` (optional, string)
 + `district` (optional, string)
 + `zip` (optional, string)
+
+### NAICSCodeObject (object)
++ `require`: [`33`] (optional, array[string], fixed-type)
++ `exclude`: [`3333`] (optional, array[string], fixed-type)
+
+### PSCCodeObject (object)
++ `require`: [[`Service`, `B`, `B5`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`Service`, `B`, `B5`, `B502`]] (optional, array[array[string]], fixed-type)
+
+### TASCodeObject (object)
++ `require`: [[`091`]] (optional, array[array[string]], fixed-type)
++ `exclude`: [[`091`, `091-0800`]] (optional, array[array[string]], fixed-type)
+
+### TreasuryAccountComponentsObject (object)
++ `ata` (optional, string, nullable)
+    Allocation Transfer Agency Identifier - three characters
++ `aid` (required, string)
+    Agency Identifier - three characters
++ `bpoa` (optional, string, nullable)
+    Beginning Period of Availability - four digits
++ `epoa` (optional, string, nullable)
+    Ending Period of Availability - four digits
++ `a` (optional, string, nullable)
+    Availability Type Code - X or null
++ `main` (required, string)
+    Main Account Code - four digits
++ `sub` (optional, string, nullable)
+    Sub-Account Code - three digits

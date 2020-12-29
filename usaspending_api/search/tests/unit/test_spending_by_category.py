@@ -3,13 +3,26 @@ import pytest
 from model_mommy import mommy
 
 from usaspending_api.common.helpers.generic_helper import get_time_period_message
-from usaspending_api.search.v2.views.spending_by_category import BusinessLogic
+from usaspending_api.search.tests.data.utilities import setup_elasticsearch_test
 from usaspending_api.search.v2.views.spending_by_category_views.spending_by_agency_types import (
     AwardingAgencyViewSet,
     AwardingSubagencyViewSet,
     FundingAgencyViewSet,
     FundingSubagencyViewSet,
 )
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_federal_account import FederalAccountViewSet
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_industry_codes import (
+    CfdaViewSet,
+    PSCViewSet,
+    NAICSViewSet,
+)
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_locations import (
+    CountyViewSet,
+    DistrictViewSet,
+    StateTerritoryViewSet,
+    CountryViewSet,
+)
+from usaspending_api.search.v2.views.spending_by_category_views.spending_by_recipient_duns import RecipientDunsViewSet
 
 
 @pytest.fixture
@@ -19,10 +32,38 @@ def psc_test_data(db):
     mommy.make("awards.Award", id=3, latest_transaction_id=3)
     mommy.make("awards.Award", id=4, latest_transaction_id=4)
 
-    mommy.make("awards.TransactionNormalized", id=1, award_id=1, federal_action_obligation=1, action_date="2020-01-01")
-    mommy.make("awards.TransactionNormalized", id=2, award_id=2, federal_action_obligation=1, action_date="2020-01-02")
-    mommy.make("awards.TransactionNormalized", id=3, award_id=3, federal_action_obligation=2, action_date="2020-01-03")
-    mommy.make("awards.TransactionNormalized", id=4, award_id=4, federal_action_obligation=2, action_date="2020-01-04")
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=1,
+        award_id=1,
+        is_fpds=True,
+        federal_action_obligation=1,
+        action_date="2020-01-01",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=2,
+        award_id=2,
+        is_fpds=True,
+        federal_action_obligation=1,
+        action_date="2020-01-02",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=3,
+        award_id=3,
+        is_fpds=True,
+        federal_action_obligation=2,
+        action_date="2020-01-03",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=4,
+        award_id=4,
+        is_fpds=True,
+        federal_action_obligation=2,
+        action_date="2020-01-04",
+    )
 
     mommy.make(
         "awards.TransactionFPDS",
@@ -81,10 +122,38 @@ def naics_test_data(db):
     mommy.make("awards.Award", id=3, latest_transaction_id=3)
     mommy.make("awards.Award", id=4, latest_transaction_id=4)
 
-    mommy.make("awards.TransactionNormalized", id=1, award_id=1, federal_action_obligation=1, action_date="2020-01-01")
-    mommy.make("awards.TransactionNormalized", id=2, award_id=2, federal_action_obligation=1, action_date="2020-01-02")
-    mommy.make("awards.TransactionNormalized", id=3, award_id=3, federal_action_obligation=2, action_date="2020-01-03")
-    mommy.make("awards.TransactionNormalized", id=4, award_id=4, federal_action_obligation=2, action_date="2020-01-04")
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=1,
+        award_id=1,
+        is_fpds=True,
+        federal_action_obligation=1,
+        action_date="2020-01-01",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=2,
+        award_id=2,
+        is_fpds=True,
+        federal_action_obligation=1,
+        action_date="2020-01-02",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=3,
+        award_id=3,
+        is_fpds=True,
+        federal_action_obligation=2,
+        action_date="2020-01-03",
+    )
+    mommy.make(
+        "awards.TransactionNormalized",
+        id=4,
+        award_id=4,
+        is_fpds=True,
+        federal_action_obligation=2,
+        action_date="2020-01-04",
+    )
 
     mommy.make("awards.TransactionFPDS", transaction_id=1, naics="NAICS 1234", naics_description="NAICS DESC 1234")
     mommy.make("awards.TransactionFPDS", transaction_id=2, naics="NAICS 1234", naics_description="NAICS DESC 1234")
@@ -189,18 +258,23 @@ def recipient_test_data(db):
         "awards.Subaward",
         id=2,
         award_id=2,
-        amount=1,
+        amount=10,
         recipient_name="University of Pawnee",
         recipient_unique_id="00UOP00",
     )
     mommy.make(
-        "awards.Subaward", id=3, award_id=3, amount=1, recipient_name="John Doe", recipient_unique_id="1234JD4321"
+        "awards.Subaward", id=3, award_id=3, amount=100, recipient_name="John Doe", recipient_unique_id="1234JD4321"
     )
     mommy.make(
-        "awards.Subaward", id=4, award_id=4, amount=10, recipient_name="John Doe", recipient_unique_id="1234JD4321"
+        "awards.Subaward", id=4, award_id=4, amount=1000, recipient_name="John Doe", recipient_unique_id="1234JD4321"
     )
     mommy.make(
-        "awards.Subaward", id=5, award_id=5, amount=15, recipient_name="MULTIPLE RECIPIENTS", recipient_unique_id=None
+        "awards.Subaward",
+        id=5,
+        award_id=5,
+        amount=10000,
+        recipient_name="MULTIPLE RECIPIENTS",
+        recipient_unique_id=None,
     )
 
     mommy.make(
@@ -279,40 +353,40 @@ def recipient_test_data(db):
         "recipient.RecipientLookup",
         duns="00UOP00",
         legal_business_name="University of Pawnee",
-        recipient_hash="f9006d7e-fa6c-fa1c-6bc5-964fe524a948",
+        recipient_hash="2af2a5a5-3126-2c76-3681-dec2cf148f1a",
     )
     mommy.make(
         "recipient.RecipientLookup",
         duns="1234JD4321",
         legal_business_name="John Doe",
-        recipient_hash="f9006d7e-fa6c-fa1c-6bc5-964fe524a949",
+        recipient_hash="0b54895d-2393-ea12-48e3-deae990614d9",
     )
     mommy.make(
         "recipient.RecipientLookup",
         duns=None,
         legal_business_name="MULTIPLE RECIPIENTS",
-        recipient_hash="6dffe44a-554c-26b4-b7ef-44db50083732",
+        recipient_hash="64af1cb7-993c-b64b-1c58-f5289af014c0",
     )
 
     mommy.make(
         "recipient.RecipientProfile",
         recipient_unique_id="00UOP00",
         recipient_level="P",
-        recipient_hash="f9006d7e-fa6c-fa1c-6bc5-964fe524a948",
+        recipient_hash="2af2a5a5-3126-2c76-3681-dec2cf148f1a",
         recipient_name="University of Pawnee",
     )
     mommy.make(
         "recipient.RecipientProfile",
         recipient_unique_id="1234JD4321",
         recipient_level="C",
-        recipient_hash="f9006d7e-fa6c-fa1c-6bc5-964fe524a949",
+        recipient_hash="0b54895d-2393-ea12-48e3-deae990614d9",
         recipient_name="John Doe",
     )
     mommy.make(
         "recipient.RecipientProfile",
         recipient_unique_id=None,
         recipient_level="R",
-        recipient_hash="6dffe44a-554c-26b4-b7ef-44db50083732",
+        recipient_hash="64af1cb7-993c-b64b-1c58-f5289af014c0",
         recipient_name="MULTIPLE RECIPIENTS",
     )
 
@@ -341,7 +415,7 @@ def geo_test_data(db):
         "awards.Subaward",
         id=2,
         award_id=2,
-        amount=1,
+        amount=10,
         pop_country_name=None,
         pop_country_code="US",
         pop_state_code="XY",
@@ -354,7 +428,7 @@ def geo_test_data(db):
         "awards.Subaward",
         id=3,
         award_id=3,
-        amount=1,
+        amount=100,
         pop_country_name=None,
         pop_country_code="US",
         pop_state_code="XY",
@@ -367,7 +441,7 @@ def geo_test_data(db):
         "awards.Subaward",
         id=4,
         award_id=4,
-        amount=1,
+        amount=1000,
         pop_country_name=None,
         pop_country_code="US",
         pop_state_code="XY",
@@ -413,7 +487,7 @@ def geo_test_data(db):
     mommy.make(
         "awards.TransactionFPDS",
         transaction_id=1,
-        place_of_perform_country_n=None,
+        place_of_perf_country_desc=None,
         place_of_perform_country_c="US",
         place_of_performance_state="XY",
         place_of_perform_county_co="04",
@@ -424,7 +498,7 @@ def geo_test_data(db):
     mommy.make(
         "awards.TransactionFPDS",
         transaction_id=2,
-        place_of_perform_country_n=None,
+        place_of_perf_country_desc=None,
         place_of_perform_country_c="US",
         place_of_performance_state="XY",
         place_of_perform_county_co="04",
@@ -435,7 +509,7 @@ def geo_test_data(db):
     mommy.make(
         "awards.TransactionFPDS",
         transaction_id=3,
-        place_of_perform_country_n=None,
+        place_of_perf_country_desc=None,
         place_of_perform_country_c="US",
         place_of_performance_state="XY",
         place_of_perform_county_co="01",
@@ -446,7 +520,7 @@ def geo_test_data(db):
     mommy.make(
         "awards.TransactionFPDS",
         transaction_id=4,
-        place_of_perform_country_n=None,
+        place_of_perf_country_desc=None,
         place_of_perform_country_c="US",
         place_of_performance_state="XY",
         place_of_perform_county_co="01",
@@ -522,13 +596,16 @@ def federal_accounts_test_data(db):
         agency_identifier="020",
         main_account_code="0001",
         account_title="Test Federal Account",
+        federal_account_code="020-0001",
     )
 
 
-def test_category_awarding_agency_awards(agency_test_data):
+def test_category_awarding_agency_awards(agency_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "awarding_agency", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = AwardingAgencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = AwardingAgencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "awarding_agency",
@@ -544,7 +621,7 @@ def test_category_awarding_agency_awards(agency_test_data):
 def test_category_awarding_agency_subawards(agency_test_data):
     test_payload = {"category": "awarding_agency", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = AwardingAgencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = AwardingAgencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "awarding_agency",
@@ -557,10 +634,12 @@ def test_category_awarding_agency_subawards(agency_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_awarding_subagency_awards(agency_test_data):
+def test_category_awarding_subagency_awards(agency_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "awarding_subagency", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = AwardingSubagencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = AwardingSubagencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "awarding_subagency",
@@ -576,7 +655,7 @@ def test_category_awarding_subagency_awards(agency_test_data):
 def test_category_awarding_subagency_subawards(agency_test_data):
     test_payload = {"category": "awarding_subagency", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = AwardingSubagencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = AwardingSubagencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "awarding_subagency",
@@ -589,10 +668,12 @@ def test_category_awarding_subagency_subawards(agency_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_funding_agency_awards(agency_test_data):
+def test_category_funding_agency_awards(agency_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "funding_agency", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = FundingAgencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = FundingAgencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "funding_agency",
@@ -608,7 +689,7 @@ def test_category_funding_agency_awards(agency_test_data):
 def test_category_funding_agency_subawards(agency_test_data):
     test_payload = {"category": "funding_agency", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = FundingAgencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = FundingAgencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "funding_agency",
@@ -621,10 +702,12 @@ def test_category_funding_agency_subawards(agency_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_funding_subagency_awards(agency_test_data):
+def test_category_funding_subagency_awards(agency_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "funding_subagency", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = FundingSubagencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = FundingSubagencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "funding_subagency",
@@ -640,7 +723,7 @@ def test_category_funding_subagency_awards(agency_test_data):
 def test_category_funding_subagency_subawards(agency_test_data):
     test_payload = {"category": "funding_subagency", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = FundingSubagencyViewSet().perform_search(test_payload)
+    spending_by_category_logic = FundingSubagencyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "funding_subagency",
@@ -654,28 +737,30 @@ def test_category_funding_subagency_subawards(agency_test_data):
 
 
 @pytest.mark.django_db
-def test_category_recipient_duns_awards(recipient_test_data):
+def test_category_recipient_duns_awards(recipient_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "recipient_duns", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = RecipientDunsViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "recipient_duns",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
         "results": [
-            {"amount": 15, "name": "MULTIPLE RECIPIENTS", "code": None, "recipient_id": None},
+            {"amount": 15, "name": "MULTIPLE RECIPIENTS", "code": "DUNS Number not provided", "recipient_id": None},
             {
                 "amount": 11,
-                "name": "John Doe",
+                "name": "JOHN DOE",
                 "code": "1234JD4321",
-                "recipient_id": "f9006d7e-fa6c-fa1c-6bc5-964fe524a949-C",
+                "recipient_id": "0b54895d-2393-ea12-48e3-deae990614d9-C",
             },
             {
                 "amount": 2,
-                "name": "University of Pawnee",
+                "name": "UNIVERSITY OF PAWNEE",
                 "code": "00UOP00",
-                "recipient_id": "f9006d7e-fa6c-fa1c-6bc5-964fe524a948-P",
+                "recipient_id": "2af2a5a5-3126-2c76-3681-dec2cf148f1a-P",
             },
         ],
         "messages": [get_time_period_message()],
@@ -688,25 +773,25 @@ def test_category_recipient_duns_awards(recipient_test_data):
 def test_category_recipient_duns_subawards(recipient_test_data):
     test_payload = {"category": "recipient_duns", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = RecipientDunsViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "recipient_duns",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
         "results": [
-            {"amount": 15, "name": "MULTIPLE RECIPIENTS", "code": None, "recipient_id": None},
+            {"amount": 10000, "code": None, "name": "MULTIPLE RECIPIENTS", "recipient_id": None},
             {
-                "amount": 11,
-                "name": "JOHN DOE",
+                "amount": 1100,
                 "code": "1234JD4321",
-                "recipient_id": "f9006d7e-fa6c-fa1c-6bc5-964fe524a949-C",
+                "recipient_id": "0b54895d-2393-ea12-48e3-deae990614d9-C",
+                "name": "JOHN DOE",
             },
             {
-                "amount": 2,
-                "name": "UNIVERSITY OF PAWNEE",
+                "amount": 11,
                 "code": "00UOP00",
-                "recipient_id": "f9006d7e-fa6c-fa1c-6bc5-964fe524a948-P",
+                "recipient_id": "2af2a5a5-3126-2c76-3681-dec2cf148f1a-P",
+                "name": "UNIVERSITY OF PAWNEE",
             },
         ],
         "messages": [get_time_period_message()],
@@ -715,10 +800,12 @@ def test_category_recipient_duns_subawards(recipient_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_cfda_awards(cfda_test_data):
+def test_category_cfda_awards(cfda_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "cfda", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CfdaViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "cfda",
@@ -734,7 +821,7 @@ def test_category_cfda_awards(cfda_test_data):
 def test_category_cfda_subawards(cfda_test_data):
     test_payload = {"category": "cfda", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CfdaViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "cfda",
@@ -747,10 +834,12 @@ def test_category_cfda_subawards(cfda_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_psc_awards(psc_test_data):
+def test_category_psc_awards(psc_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "psc", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = PSCViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "psc",
@@ -766,10 +855,12 @@ def test_category_psc_awards(psc_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_naics_awards(naics_test_data):
+def test_category_naics_awards(naics_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "naics", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = NAICSViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "naics",
@@ -785,10 +876,12 @@ def test_category_naics_awards(naics_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_county_awards(geo_test_data):
+def test_category_county_awards(geo_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "county", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CountyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "county",
@@ -807,15 +900,15 @@ def test_category_county_awards(geo_test_data):
 def test_category_county_subawards(geo_test_data):
     test_payload = {"category": "county", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CountyViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "county",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
         "results": [
-            {"amount": 2, "code": "004", "name": "COUNTYSVILLE", "id": None},
-            {"amount": 2, "code": "001", "name": "SOMEWHEREVILLE", "id": None},
+            {"amount": 1100, "code": "001", "id": None, "name": "SOMEWHEREVILLE"},
+            {"amount": 11, "code": "004", "id": None, "name": "COUNTYSVILLE"},
         ],
         "messages": [get_time_period_message()],
     }
@@ -823,10 +916,12 @@ def test_category_county_subawards(geo_test_data):
     assert expected_response == spending_by_category_logic
 
 
-def test_category_district_awards(geo_test_data):
+def test_category_district_awards(geo_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "district", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = DistrictViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "district",
@@ -845,15 +940,15 @@ def test_category_district_awards(geo_test_data):
 def test_category_district_subawards(geo_test_data):
     test_payload = {"category": "district", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = DistrictViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "district",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
         "results": [
-            {"amount": 2, "code": "90", "name": "XY-MULTIPLE DISTRICTS", "id": None},
-            {"amount": 2, "code": "06", "name": "XY-06", "id": None},
+            {"amount": 1100, "code": "90", "id": None, "name": "XY-MULTIPLE DISTRICTS"},
+            {"amount": 11, "code": "06", "id": None, "name": "XY-06"},
         ],
         "messages": [get_time_period_message()],
     }
@@ -862,10 +957,12 @@ def test_category_district_subawards(geo_test_data):
 
 
 @pytest.mark.django_db
-def test_category_state_territory(geo_test_data):
+def test_category_state_territory(geo_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "state_territory", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = StateTerritoryViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "state_territory",
@@ -882,13 +979,13 @@ def test_category_state_territory(geo_test_data):
 def test_category_state_territory_subawards(geo_test_data):
     test_payload = {"category": "state_territory", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = StateTerritoryViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "state_territory",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
-        "results": [{"amount": 4, "code": "XY", "name": "Test State", "id": None}],
+        "results": [{"amount": 1111, "code": "XY", "id": None, "name": "Test State"}],
         "messages": [get_time_period_message()],
     }
 
@@ -896,10 +993,12 @@ def test_category_state_territory_subawards(geo_test_data):
 
 
 @pytest.mark.django_db
-def test_category_country(geo_test_data):
+def test_category_country(geo_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {"category": "country", "subawards": False, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CountryViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "country",
@@ -916,13 +1015,13 @@ def test_category_country(geo_test_data):
 def test_category_country_subawards(geo_test_data):
     test_payload = {"category": "country", "subawards": True, "page": 1, "limit": 50}
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = CountryViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "country",
         "limit": 50,
         "page_metadata": {"page": 1, "next": None, "previous": None, "hasNext": False, "hasPrevious": False},
-        "results": [{"amount": 4, "code": "US", "name": "UNITED STATES", "id": None}],
+        "results": [{"amount": 1111, "code": "US", "id": None, "name": "UNITED STATES"}],
         "messages": [get_time_period_message()],
     }
 
@@ -930,7 +1029,9 @@ def test_category_country_subawards(geo_test_data):
 
 
 @pytest.mark.django_db
-def test_category_federal_accounts(federal_accounts_test_data):
+def test_category_federal_accounts(federal_accounts_test_data, monkeypatch, elasticsearch_transaction_index):
+    setup_elasticsearch_test(monkeypatch, elasticsearch_transaction_index)
+
     test_payload = {
         "category": "federal_account",
         "filters": {"recipient_id": "dece8b43-c2a8-d056-7e82-0fc2f1c7c4e4-R"},
@@ -939,7 +1040,7 @@ def test_category_federal_accounts(federal_accounts_test_data):
         "limit": 50,
     }
 
-    spending_by_category_logic = BusinessLogic(test_payload).results()
+    spending_by_category_logic = FederalAccountViewSet().perform_search(test_payload, {})
 
     expected_response = {
         "category": "federal_account",

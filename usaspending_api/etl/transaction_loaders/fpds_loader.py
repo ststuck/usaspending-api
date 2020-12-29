@@ -1,7 +1,7 @@
 import logging
 from psycopg2.extras import DictCursor
 from psycopg2 import Error
-from django.db import connections, connection
+from django.db import connection
 
 from usaspending_api.etl.transaction_loaders.field_mappings_fpds import (
     transaction_fpds_nonboolean_columns,
@@ -13,11 +13,7 @@ from usaspending_api.etl.transaction_loaders.field_mappings_fpds import (
     transaction_fpds_functions,
     all_broker_columns,
 )
-from usaspending_api.etl.transaction_loaders.data_load_helpers import (
-    capitalize_if_string,
-    false_if_null,
-    get_deleted_fpds_data_from_s3,
-)
+from usaspending_api.etl.transaction_loaders.data_load_helpers import capitalize_if_string, false_if_null
 from usaspending_api.etl.transaction_loaders.generic_loaders import (
     update_transaction_fpds,
     update_transaction_normalized,
@@ -25,26 +21,24 @@ from usaspending_api.etl.transaction_loaders.generic_loaders import (
     insert_transaction_fpds,
     insert_award,
 )
-from usaspending_api.common.helpers.timing_helpers import Timer
+from usaspending_api.common.helpers.timing_helpers import ConsoleTimer as Timer
+
 
 logger = logging.getLogger("console")
 
 failed_ids = []
 
 
-def delete_stale_fpds(date):
+def delete_stale_fpds(detached_award_procurement_ids):
     """
     Removed transaction_fpds and transaction_normalized records matching any of the
     provided detached_award_procurement_id list
     Returns list of awards touched
     """
-
-    detached_award_procurement_ids = get_deleted_fpds_data_from_s3(date)
-
     if not detached_award_procurement_ids:
         return []
 
-    ids_to_delete = ",".join([str(id) for id in detached_award_procurement_ids])
+    ids_to_delete = ",".join([str(id) for ids in detached_award_procurement_ids.values() for id in ids])
     logger.debug(f"Obtained these delete record IDs: [{ids_to_delete}]")
 
     with connection.cursor() as cursor:
@@ -69,7 +63,7 @@ def delete_stale_fpds(date):
             "returning id".format(ids=txn_id_str)
         )
         deleted_awards = cursor.fetchall()
-        logger.info(f"{len(deleted_awards)} awards were unlinked from transactions due to pending deletes")
+        logger.info(f"{len(deleted_awards):,} awards were unlinked from transactions due to pending deletes")
 
         cursor.execute(f"delete from transaction_fpds where transaction_id in ({txn_id_str}) returning transaction_id")
         deleted_fpds = set(cursor.fetchall())
@@ -81,15 +75,16 @@ def delete_stale_fpds(date):
             msg = "Delete Mismatch! Counts of transaction_normalized ({}) and transaction_fpds ({}) deletes"
             raise RuntimeError(msg.format(len(deleted_transactions), len(deleted_fpds)))
 
+        logger.info(f"{len(deleted_fpds):,} transactions deleted")
+
         return awards_touched
 
 
 def load_fpds_transactions(chunk):
     """
     Run transaction load for the provided ids. This will create any new rows in other tables to support the transaction
-    data, but does NOT update "secondary" award values like total obligations or C -> D linkages. If transactions are
-    being reloaded, this will also leave behind rows in supporting tables that won't be removed unless destroy_orphans
-    is called.
+    data, but does NOT update "secondary" award values like total obligations or C -> D linkages.
+
     returns ids for each award touched
     """
     with Timer() as timer:
@@ -106,10 +101,9 @@ def load_fpds_transactions(chunk):
 
 def _extract_broker_objects(id_list):
 
-    broker_conn = connections["data_broker"]
-    broker_conn.ensure_connection()
-    with broker_conn.connection.cursor(cursor_factory=DictCursor) as cursor:
-        sql = "SELECT {} from detached_award_procurement where detached_award_procurement_id in %s".format(
+    connection.ensure_connection()
+    with connection.connection.cursor(cursor_factory=DictCursor) as cursor:
+        sql = "SELECT {} from source_procurement_transaction where detached_award_procurement_id in %s".format(
             ",".join(all_broker_columns())
         )
         cursor.execute(sql, (tuple(id_list),))

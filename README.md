@@ -24,7 +24,7 @@ Ensure the following dependencies are installed and working prior to continuing:
     - MacOS users will use [`Homebrew`](https://brew.sh/)
     - Linux users already know their package manager (yum, apt, pacman, etc.)
 - [`PostgreSQL`](https://www.postgresql.org/download/) version 10.x (with a dedicated `data_store_api` database)
-- [`Elasticsearch`](https://www.elastic.co/downloads/elasticsearch) version 6.3
+- [`Elasticsearch`](https://www.elastic.co/downloads/elasticsearch) version 7.1
 - Python 3.7 environment
   - Highly recommended to use a virtual environment. There are various tools and associated instructions depending on preferences
 
@@ -113,7 +113,9 @@ For details on how our data loaders modify incoming data, see [data_reformatting
 
 ### Test Setup
 To run tests, you need:
+
 1. **Postgres** A running PostgreSQL database server _(See [Database Setup above](#database-setup))_
+1. **Elasticsearch** A running Elasticsearch cluster _(See [Elasticsearch Setup above](#elasticsearch-setup))_
 1. **Required Python Libraries** Python package dependencies downloaded and discoverable _(See below)_
 1. **Environment Variables** Tell python where to connect to the various data stores _(See below)_
 
@@ -140,11 +142,13 @@ Your prompt should then look as below to show you are _in_ the virtual environme
 
 #### Environment Variables
 Create a `.envrc` file in the repo root, which will be ignored by git. Change credentials and ports as-needed for your local dev environment.
+
 ```bash
 export DATABASE_URL=postgres://usaspending:usaspender@localhost:5432/data_store_api
 export ES_HOSTNAME=http://localhost:9200
 export DATA_BROKER_DATABASE_URL=postgres://admin:root@localhost:5435/data_broker
 ```
+
 If `direnv` does not pick this up after saving the file, type
 
     $ direnv allow

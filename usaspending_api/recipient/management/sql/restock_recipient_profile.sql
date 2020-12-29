@@ -1,27 +1,48 @@
 --------------------------------------------------------------------------------
 -- Step 1, create the temporary matview of recipients from transactions
 --------------------------------------------------------------------------------
+SELECT now() AS script_started_at;
+
 DROP MATERIALIZED VIEW IF EXISTS public.temporary_recipients_from_transactions_view;
 DROP TABLE IF EXISTS public.temporary_restock_recipient_profile;
 DROP INDEX IF EXISTS public.idx_recipients_in_transactions_view;
 DROP INDEX IF EXISTS public.idx_recipient_profile_uniq_new;
 
 DO $$ BEGIN RAISE NOTICE 'Step 1: Creating temp materialized view'; END $$;
+
 CREATE MATERIALIZED VIEW public.temporary_recipients_from_transactions_view AS (
   SELECT
-    recipient_hash,
-    recipient_unique_id,
-    parent_recipient_unique_id,
-    COALESCE(award_category, 'contract') AS award_category,
+    MD5(UPPER(
+      CASE
+        WHEN COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu) IS NOT NULL THEN CONCAT('duns-', COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu))
+        ELSE CONCAT('name-', COALESCE(fpds.awardee_or_recipient_legal, fabs.awardee_or_recipient_legal, '')) END
+    ))::uuid AS recipient_hash,
+    COALESCE(fpds.awardee_or_recipient_uniqu, fabs.awardee_or_recipient_uniqu) AS recipient_unique_id,
+    COALESCE(fpds.ultimate_parent_unique_ide, fabs.ultimate_parent_unique_ide) AS parent_recipient_unique_id,
     CASE
-      WHEN parent_recipient_unique_id IS NOT NULL THEN 'C'
+      WHEN tn.type IN ('A', 'B', 'C', 'D')      THEN 'contract'
+      WHEN tn.type IN ('02', '03', '04', '05')  THEN 'grant'
+      WHEN tn.type IN ('06', '10')              THEN 'direct payment'
+      WHEN tn.type IN ('07', '08')              THEN 'loans'
+      WHEN tn.type IN ('09', '11')              THEN 'other'     -- collapsing insurance into other
+      WHEN tn.type LIKE 'IDV%'                  THEN 'contract'  -- collapsing idv into contract
+      ELSE NULL
+    END AS award_category,
+    CASE
+      WHEN COALESCE(fpds.ultimate_parent_unique_ide, fabs.ultimate_parent_unique_ide) IS NOT NULL THEN 'C'
     ELSE 'R' END AS recipient_level,
-    action_date,
-    generated_pragmatic_obligation
+    tn.action_date,
+    COALESCE(CASE
+        WHEN tn.type IN('07','08') THEN tn.original_loan_subsidy_cost
+        ELSE tn.federal_action_obligation
+      END, 0)::NUMERIC(23, 2) AS generated_pragmatic_obligation
   FROM
-    universal_transaction_matview
-  WHERE action_date >= '2007-10-01' AND
-    (award_category IS NOT NULL OR (award_category IS NULL AND pulled_from = 'IDV'))
+    transaction_normalized tn
+  LEFT OUTER JOIN transaction_fpds as fpds ON tn.id = fpds.transaction_id
+  LEFT OUTER JOIN transaction_fabs as fabs ON tn.id = fabs.transaction_id
+  WHERE
+    tn.action_date >= '2007-10-01'
+    AND tn.type IS NOT NULL
 );
 
 CREATE INDEX idx_recipients_in_transactions_view ON public.temporary_recipients_from_transactions_view USING BTREE(recipient_hash, recipient_level);
@@ -310,10 +331,49 @@ DELETE FROM public.temporary_restock_recipient_profile WHERE unused = true;
 --------------------------------------------------------------------------------
 -- Step 10, Drop unnecessary relations and standup new table as final
 --------------------------------------------------------------------------------
-DO $$ BEGIN RAISE NOTICE 'Step 10: restocking destination table'; END $$;
+DO $$ BEGIN RAISE NOTICE 'Step 10: updating destination table'; END $$;
 
-BEGIN;
-TRUNCATE TABLE public.recipient_profile RESTART IDENTITY;
+DELETE FROM public.recipient_profile rp
+WHERE NOT EXISTS (
+    SELECT FROM public.temporary_restock_recipient_profile temp_p
+    WHERE rp.recipient_hash = temp_p.recipient_hash
+      AND rp.recipient_level = temp_p.recipient_level
+    )
+;
+
+UPDATE public.recipient_profile rp
+SET
+    recipient_unique_id = temp_p.recipient_unique_id,
+    recipient_name = temp_p.recipient_name,
+    recipient_affiliations = temp_p.recipient_affiliations,
+    award_types = temp_p.award_types,
+    last_12_months = temp_p.last_12_months,
+    last_12_contracts = temp_p.last_12_contracts,
+    last_12_loans = temp_p.last_12_loans,
+    last_12_grants = temp_p.last_12_grants,
+    last_12_direct_payments = temp_p.last_12_direct_payments,
+    last_12_other = temp_p.last_12_other,
+    last_12_months_count = temp_p.last_12_months_count
+FROM public.temporary_restock_recipient_profile temp_p
+WHERE
+    rp.recipient_hash = temp_p.recipient_hash
+    AND rp.recipient_level = temp_p.recipient_level
+    AND (
+        rp.recipient_unique_id IS DISTINCT FROM temp_p.recipient_unique_id
+        OR rp.recipient_name IS DISTINCT FROM temp_p.recipient_name
+        OR rp.recipient_affiliations IS DISTINCT FROM temp_p.recipient_affiliations
+        OR rp.award_types IS DISTINCT FROM temp_p.award_types
+        OR rp.last_12_months IS DISTINCT FROM temp_p.last_12_months
+        OR rp.last_12_contracts IS DISTINCT FROM temp_p.last_12_contracts
+        OR rp.last_12_loans IS DISTINCT FROM temp_p.last_12_loans
+        OR rp.last_12_grants IS DISTINCT FROM temp_p.last_12_grants
+        OR rp.last_12_direct_payments IS DISTINCT FROM temp_p.last_12_direct_payments
+        OR rp.last_12_other IS DISTINCT FROM temp_p.last_12_other
+        OR rp.last_12_months_count IS DISTINCT FROM temp_p.last_12_months_count
+    )
+;
+
+
 INSERT INTO public.recipient_profile (
     recipient_level, recipient_hash, recipient_unique_id,
     recipient_name, recipient_affiliations, award_types, last_12_months,
@@ -324,9 +384,10 @@ INSERT INTO public.recipient_profile (
     recipient_name, recipient_affiliations, award_types, last_12_months,
     last_12_contracts, last_12_loans, last_12_grants, last_12_direct_payments, last_12_other,
     last_12_months_count
-  FROM public.temporary_restock_recipient_profile;
+  FROM public.temporary_restock_recipient_profile
+  ON CONFLICT (recipient_hash,recipient_level) DO NOTHING;
+
 DROP TABLE public.temporary_restock_recipient_profile;
 DROP MATERIALIZED VIEW public.temporary_recipients_from_transactions_view;
-COMMIT;
 
-VACUUM ANALYZE public.recipient_profile;
+SELECT now() AS script_completed_at;

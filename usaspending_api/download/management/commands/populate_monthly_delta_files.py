@@ -15,13 +15,14 @@ from django.db.models import Case, When, Value, CharField, F
 from usaspending_api.awards.v2.lookups.lookups import all_award_types_mappings as all_ats_mappings
 from usaspending_api.common.csv_helpers import count_rows_in_delimited_file
 from usaspending_api.common.helpers.orm_helpers import generate_raw_quoted_query
+from usaspending_api.common.helpers.s3_helpers import multipart_upload
 from usaspending_api.download.filestreaming.download_generation import (
     apply_annotations_to_sql,
     _top_level_split,
+    split_and_zip_data_files,
 )
-from usaspending_api.download.filestreaming.download_generation import split_and_zip_data_files
 from usaspending_api.download.filestreaming.download_source import DownloadSource
-from usaspending_api.download.helpers import pull_modified_agencies_cgacs, multipart_upload
+from usaspending_api.download.helpers import pull_modified_agencies_cgacs
 from usaspending_api.download.lookups import VALUE_MAPPINGS
 from usaspending_api.references.models import ToptierAgency, SubtierAgency
 
@@ -225,7 +226,7 @@ class Command(BaseCommand):
         return pd.Series(tid.split("_") + [tid])
 
     def add_deletion_records(self, source_path, working_dir, award_type, agency_code, source, generate_since):
-        """ Retrieve deletion files from S3 and append necessary records to the end of the the file """
+        """ Retrieve deletion files from S3 and append necessary records to the end of the file """
         logger.info("Retrieving deletion records from S3 files and appending to the CSV")
 
         # Retrieve all SubtierAgency IDs within this TopTierAgency
@@ -236,7 +237,9 @@ class Command(BaseCommand):
         )
 
         # Create a list of keys in the bucket that match the date range we want
-        bucket = boto3.resource("s3", region_name=settings.USASPENDING_AWS_REGION).Bucket(settings.FPDS_BUCKET_NAME)
+        bucket = boto3.resource("s3", region_name=settings.USASPENDING_AWS_REGION).Bucket(
+            settings.DELETED_TRANSACTION_JOURNAL_FILES
+        )
 
         all_deletions = pd.DataFrame()
         for key in bucket.objects.all():

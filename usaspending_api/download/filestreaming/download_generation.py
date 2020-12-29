@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import os
 from pathlib import Path
+from typing import Optional, Tuple, List
 
 import psutil as ps
 import re
@@ -20,31 +21,27 @@ from usaspending_api.awards.v2.lookups.lookups import contract_type_mapping, ass
 from usaspending_api.common.csv_helpers import count_rows_in_delimited_file, partition_large_delimited_file
 from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.common.helpers.orm_helpers import generate_raw_quoted_query
+from usaspending_api.common.helpers.s3_helpers import multipart_upload
 from usaspending_api.common.helpers.text_helpers import slugify_text_for_file_names
 from usaspending_api.common.retrieve_file_from_uri import RetrieveFileFromUri
 from usaspending_api.download.download_utils import construct_data_date_range
 from usaspending_api.download.filestreaming import NAMING_CONFLICT_DISCRIMINATOR
 from usaspending_api.download.filestreaming.download_source import DownloadSource
-from usaspending_api.download.filestreaming.generate_export_query import generate_default_export_query
 from usaspending_api.download.filestreaming.file_description import build_file_description, save_file_description
 from usaspending_api.download.filestreaming.zip_file import append_files_to_zip_file
-from usaspending_api.download.helpers import (
-    verify_requested_columns_available,
-    multipart_upload,
-    write_to_download_log as write_to_log,
-)
+from usaspending_api.download.helpers import verify_requested_columns_available, write_to_download_log as write_to_log
 from usaspending_api.download.lookups import JOB_STATUS_DICT, VALUE_MAPPINGS, FILE_FORMATS
 from usaspending_api.download.models import DownloadJob
 
 DOWNLOAD_VISIBILITY_TIMEOUT = 60 * 10
-MAX_VISIBILITY_TIMEOUT = 60 * 60 * 4
+MAX_VISIBILITY_TIMEOUT = 60 * 60 * settings.DOWNLOAD_DB_TIMEOUT_IN_HOURS
 EXCEL_ROW_LIMIT = 1000000
 WAIT_FOR_PROCESS_SLEEP = 5
 
 logger = logging.getLogger(__name__)
 
 
-def generate_download(download_job):
+def generate_download(download_job: DownloadJob, origination: Optional[str] = None):
     """Create data archive files from the download job object"""
 
     # Parse data from download_job
@@ -71,7 +68,7 @@ def generate_download(download_job):
         write_to_log(message=f"Generating {file_name}", download_job=download_job)
 
         # Generate sources from the JSON request object
-        sources = get_download_sources(json_request)
+        sources = get_download_sources(json_request, origination)
         for source in sources:
             # Parse and write data to the file; if there are no matching columns for a source then add an empty file
             source_column_count = len(source.columns(columns))
@@ -139,7 +136,7 @@ def generate_download(download_job):
     return finish_download(download_job)
 
 
-def get_download_sources(json_request):
+def get_download_sources(json_request: dict, origination: Optional[str] = None):
     download_sources = []
     for download_type in json_request["download_types"]:
         agency_id = json_request.get("agency", "all")
@@ -159,16 +156,22 @@ def get_download_sources(json_request):
             )
 
             queryset = filter_function(filters)
-            award_type_codes = set(filters["award_type_codes"])
+            if filters.get("prime_and_sub_award_types") is not None:
+                award_type_codes = set(filters["prime_and_sub_award_types"][download_type])
+            else:
+                award_type_codes = set(filters["award_type_codes"])
 
-            if award_type_codes & (set(contract_type_mapping.keys()) | set(idv_type_mapping.keys())):
+            if (
+                award_type_codes & (set(contract_type_mapping.keys()) | set(idv_type_mapping.keys()))
+                or "procurement" in award_type_codes
+            ):
                 # only generate d1 files if the user is asking for contract data
                 d1_source = DownloadSource(VALUE_MAPPINGS[download_type]["table_name"], "d1", download_type, agency_id)
                 d1_filters = {f"{VALUE_MAPPINGS[download_type]['contract_data']}__isnull": False}
                 d1_source.queryset = queryset & download_type_table.objects.filter(**d1_filters)
                 download_sources.append(d1_source)
 
-            if award_type_codes & set(assistance_type_mapping.keys()):
+            if award_type_codes & set(assistance_type_mapping.keys()) or ("grant" in award_type_codes):
                 # only generate d2 files if the user is asking for assistance data
                 d2_source = DownloadSource(VALUE_MAPPINGS[download_type]["table_name"], "d2", download_type, agency_id)
                 d2_filters = {f"{VALUE_MAPPINGS[download_type]['assistance_data']}__isnull": False}
@@ -188,6 +191,20 @@ def get_download_sources(json_request):
             )
             download_sources.append(account_source)
 
+        elif VALUE_MAPPINGS[download_type]["source_type"] == "disaster":
+            # Disaster Page downloads
+            disaster_source = DownloadSource(
+                VALUE_MAPPINGS[download_type]["source_type"],
+                VALUE_MAPPINGS[download_type]["table_name"],
+                download_type,
+                agency_id,
+            )
+            disaster_source.award_category = json_request["award_category"]
+            disaster_source.queryset = filter_function(
+                json_request["filters"], download_type, VALUE_MAPPINGS[download_type]["base_fields"]
+            )
+            download_sources.append(disaster_source)
+
     verify_requested_columns_available(tuple(download_sources), json_request.get("columns", []))
 
     return download_sources
@@ -202,6 +219,7 @@ def build_data_file_name(source, download_job, piid, assistance_id):
         return strip_file_extension(download_job.file_name)
 
     file_name_pattern = VALUE_MAPPINGS[source.source_type]["download_name"]
+    timestamp = datetime.strftime(datetime.now(timezone.utc), "%Y-%m-%d_H%HM%MS%S")
 
     if source.is_for_idv or source.is_for_contract:
         data_file_name = file_name_pattern.format(piid=slugify_text_for_file_names(piid, "UNKNOWN", 50))
@@ -209,6 +227,8 @@ def build_data_file_name(source, download_job, piid, assistance_id):
         data_file_name = file_name_pattern.format(
             assistance_id=slugify_text_for_file_names(assistance_id, "UNKNOWN", 50)
         )
+    elif source.source_type == "disaster_recipient":
+        data_file_name = file_name_pattern.format(award_category=source.award_category, timestamp=timestamp)
     else:
         if source.agency_code == "all":
             agency = "All"
@@ -221,7 +241,6 @@ def build_data_file_name(source, download_job, piid, assistance_id):
             agency = ""
         elif source.file_type not in ("treasury_account", "federal_account"):
             agency = f"{agency}_"
-        timestamp = datetime.strftime(datetime.now(timezone.utc), "%Y-%m-%d_H%HM%MS%S")
 
         data_file_name = file_name_pattern.format(
             agency=agency,
@@ -236,9 +255,6 @@ def build_data_file_name(source, download_job, piid, assistance_id):
 
 def parse_source(source, columns, download_job, working_dir, piid, assistance_id, zip_file_path, limit, file_format):
     """Write to delimited text file(s) and zip file(s) using the source data"""
-    export_function = generate_default_export_query
-    if source and source.source_type in VALUE_MAPPINGS:
-        export_function = VALUE_MAPPINGS[source.source_type].get("export_query_function") or export_function
 
     data_file_name = build_data_file_name(source, download_job, piid, assistance_id)
 
@@ -250,7 +266,7 @@ def parse_source(source, columns, download_job, working_dir, piid, assistance_id
     write_to_log(message=f"Preparing to download data as {source.file_name}", download_job=download_job)
 
     # Generate the query file; values, limits, dates fixed
-    export_query = generate_export_query(source_query, limit, source, columns, file_format, export_function)
+    export_query = generate_export_query(source_query, limit, source, columns, file_format)
     temp_file, temp_file_path = generate_export_query_temp_file(export_query, download_job)
 
     start_time = time.perf_counter()
@@ -304,24 +320,23 @@ def split_and_zip_data_files(zip_file_path, source_path, data_file_name, file_fo
             file_path=source_path, delimiter=delim, row_limit=EXCEL_ROW_LIMIT, output_name_template=output_template
         )
 
-        if download_job:
-            msg = f"Partitioning data into {len(list_of_files)} files took {time.perf_counter() - log_time:.4f}s"
-            write_to_log(message=msg, download_job=download_job)
+        msg = f"Partitioning data into {len(list_of_files)} files took {time.perf_counter() - log_time:.4f}s"
+        write_to_log(message=msg, download_job=download_job)
 
         # Zip the split files into one zipfile
         write_to_log(message="Beginning zipping and compression", download_job=download_job)
         log_time = time.perf_counter()
         append_files_to_zip_file(list_of_files, zip_file_path)
 
-        if download_job:
-            write_to_log(
-                message=f"Writing to zipfile took {time.perf_counter() - log_time:.4f}s", download_job=download_job
-            )
+        write_to_log(
+            message=f"Writing to zipfile took {time.perf_counter() - log_time:.4f}s", download_job=download_job
+        )
 
     except Exception as e:
         message = "Exception while partitioning text file"
-        fail_download(download_job, e, message)
-        write_to_log(message=message, download_job=download_job, is_error=True)
+        if download_job:
+            fail_download(download_job, e, message)
+            write_to_log(message=message, download_job=download_job, is_error=True)
         logger.error(e)
         raise e
 
@@ -355,7 +370,11 @@ def wait_for_process(process, start_time, download_job):
     # Let the thread run until it finishes (max MAX_VISIBILITY_TIMEOUT), with a buffer of DOWNLOAD_VISIBILITY_TIMEOUT
     sleep_count = 0
     while process.is_alive():
-        if not download_job.monthly_download and (time.perf_counter() - start_time) > MAX_VISIBILITY_TIMEOUT:
+        if (
+            download_job
+            and not download_job.monthly_download
+            and (time.perf_counter() - start_time) > MAX_VISIBILITY_TIMEOUT
+        ):
             break
         if sleep_count < 10:
             time.sleep(WAIT_FOR_PROCESS_SLEEP / 5)
@@ -364,7 +383,7 @@ def wait_for_process(process, start_time, download_job):
         sleep_count += 1
 
     over_time = (time.perf_counter() - start_time) >= MAX_VISIBILITY_TIMEOUT
-    if (not download_job.monthly_download and over_time) or process.exitcode != 0:
+    if download_job and (not download_job.monthly_download and over_time) or process.exitcode != 0:
         if process.is_alive():
             # Process is running for longer than MAX_VISIBILITY_TIMEOUT, kill it
             write_to_log(
@@ -383,19 +402,21 @@ def wait_for_process(process, start_time, download_job):
     return time.perf_counter() - log_time
 
 
-def generate_export_query(source_query, limit, source, columns, file_format, generate_export_query_function):
+def generate_export_query(source_query, limit, source, columns, file_format):
     if limit:
         source_query = source_query[:limit]
     query_annotated = apply_annotations_to_sql(generate_raw_quoted_query(source_query), source.columns(columns))
     options = FILE_FORMATS[file_format]["options"]
-    return generate_export_query_function(source, query_annotated, options)
+    return r"\COPY ({}) TO STDOUT {}".format(query_annotated, options)
 
 
-def generate_export_query_temp_file(export_query, download_job):
-    write_to_log(message="Saving PSQL Query: {}".format(export_query), download_job=download_job, is_debug=True)
-
+def generate_export_query_temp_file(export_query, download_job, temp_dir=None):
+    write_to_log(message=f"Saving PSQL Query: {export_query}", download_job=download_job, is_debug=True)
+    dir_name = "/tmp"
+    if temp_dir:
+        dir_name = temp_dir
     # Create a unique temporary file to hold the raw query, using \copy
-    (temp_sql_file, temp_sql_file_path) = tempfile.mkstemp(prefix="bd_sql_", dir="/tmp")
+    (temp_sql_file, temp_sql_file_path) = tempfile.mkstemp(prefix="bd_sql_", dir=dir_name)
 
     with open(temp_sql_file_path, "w") as file:
         file.write(export_query)
@@ -410,7 +431,7 @@ def apply_annotations_to_sql(raw_query, aliases):
     function simply outputs a modified raw sql which does the aliasing, allowing these scenarios.
     """
 
-    select_statements = _select_columns(raw_query)
+    cte_sql, select_statements = _select_columns(raw_query)
 
     DIRECT_SELECT_QUERY_REGEX = r'^[^ ]*\."[^"]*"$'  # Django is pretty consistent with how it prints out queries
     # Create a list from the non-derived values between SELECT and FROM
@@ -433,6 +454,9 @@ def apply_annotations_to_sql(raw_query, aliases):
 
     sql = raw_query.replace(_top_level_split(raw_query, "FROM")[0], "SELECT " + ", ".join(values_list), 1)
 
+    if cte_sql:
+        sql = f"{cte_sql} {sql}"
+
     # Now that we've converted the queryset to SQL, cleaned up aliasing for non-annotated fields, and sorted
     # the SELECT columns, there's one final step.  The Django ORM does now allow alias names to conflict with
     # column/field names on the underlying model.  For annotated fields, naming conflict exceptions occur at
@@ -443,10 +467,12 @@ def apply_annotations_to_sql(raw_query, aliases):
     return sql.replace(NAMING_CONFLICT_DISCRIMINATOR, "")
 
 
-def _select_columns(sql):
+def _select_columns(sql: str) -> Tuple[str, List[str]]:
     in_quotes = False
+    in_cte = False
     parens_depth = 0
     last_processed_index = 0
+    cte_sql = None
     retval = []
 
     for index, char in enumerate(sql):
@@ -456,23 +482,32 @@ def _select_columns(sql):
             continue
         if char == "(":
             parens_depth = parens_depth + 1
+            if in_cte:
+                continue
         if char == ")":
             parens_depth = parens_depth - 1
+            if in_cte and parens_depth == 0:
+                in_cte = False
+                cte_sql = sql[: index + 1]
+                last_processed_index = index
 
-        if parens_depth == 0:
+        if parens_depth == 0 and not in_cte:
+            # Set flag to ignore the CTE
+            if sql[index : index + 5] == "WITH ":
+                in_cte = True
             # Ignore the SELECT statement
             if sql[index : index + 6] == "SELECT":
-                last_processed_index = last_processed_index + 6
+                last_processed_index = index + 6
             # If there is a FROM at the bottom level, we have all the values we need and can return
             if sql[index : index + 4] == "FROM":
                 retval.append(sql[last_processed_index:index].strip())
-                return retval
+                return cte_sql, retval
             # If there is a comma on the bottom level, add another select value and start parsing a new one
             if char == ",":
                 retval.append(sql[last_processed_index:index].strip())
                 last_processed_index = index + 1  # skips the comma by design
 
-    return retval  # this will almost certainly error out later.
+    return cte_sql, retval  # this will almost certainly error out later.
 
 
 def _top_level_split(sql, splitter):
@@ -498,12 +533,17 @@ def execute_psql(temp_sql_file_path, source_path, download_job):
     """Executes a single PSQL command within its own Subprocess"""
     try:
         log_time = time.perf_counter()
+        temp_env = os.environ.copy()
+        if download_job and not download_job.monthly_download:
+            # Since terminating the process isn't guarenteed to end the DB statement, add timeout to client connection
+            temp_env["PGOPTIONS"] = f"--statement-timeout={settings.DOWNLOAD_DB_TIMEOUT_IN_HOURS}h"
 
         cat_command = subprocess.Popen(["cat", temp_sql_file_path], stdout=subprocess.PIPE)
         subprocess.check_output(
             ["psql", "-q", "-o", source_path, retrieve_db_string(), "-v", "ON_ERROR_STOP=1"],
             stdin=cat_command.stdout,
             stderr=subprocess.STDOUT,
+            env=temp_env,
         )
 
         duration = time.perf_counter() - log_time

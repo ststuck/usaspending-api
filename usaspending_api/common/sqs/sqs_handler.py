@@ -10,7 +10,7 @@ import pickle
 from typing import List
 import uuid
 
-from usaspending_api import settings
+from django.conf import settings
 
 LOCAL_FAKE_QUEUE_NAME = "local-fake-queue"
 UNITTEST_FAKE_QUEUE_NAME = "unittest-fake-queue"
@@ -223,7 +223,7 @@ class FakeSQSMessage:
             _FakeUnitTestFileBackedSQSQueue.instance()._remove(self)
         else:
             raise ValueError(
-                f"Cannot locate queue instance with url = {self.queue_url}, from which to delete the " f"message"
+                f"Cannot locate queue instance with url = {self.queue_url}, from which to delete the message"
             )
 
     def change_visibility(self, VisibilityTimeout):  # noqa
@@ -245,6 +245,6 @@ def get_sqs_queue(region_name=settings.USASPENDING_AWS_REGION, queue_name=settin
         return _FakeFileBackedSQSQueue.instance()
     else:
         # stuff that's in get_queue
-        sqs = boto3.resource("sqs", region_name)
+        sqs = boto3.resource("sqs", endpoint_url=f"https://sqs.{region_name}.amazonaws.com", region_name=region_name)
         queue = sqs.get_queue_by_name(QueueName=queue_name)
         return queue
