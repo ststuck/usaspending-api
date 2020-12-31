@@ -2,13 +2,14 @@ WITH valid_file_d_awards AS (
     SELECT
         transactions.activity,
         transactions.count,
-        awards.*
+        awards.is_fpds,
+        awards.id
     FROM awards
     INNER JOIN (
         SELECT
             award_id,
             COUNT(*) as count,
-            array_agg(DISTINCT to_char(action_date + INTERVAL '3' month, 'YYYY-"Q"Q-MM')) as activity
+            array_agg(DISTINCT to_char(action_date + INTERVAL '3' month, '"FY"YYYY-"Q"Q-MM')) as activity
         FROM transaction_normalized
         GROUP BY award_id
     ) AS transactions ON transactions.award_id = awards.id

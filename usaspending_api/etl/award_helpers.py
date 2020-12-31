@@ -285,7 +285,7 @@ def execute_database_statement(sql: str, values: Optional[list] = None) -> int:
 
 
 def convert_award_id_to_guai(award_tuple: tuple) -> tuple:
-    """Scafolding code between award PK ids and unique award ids"""
+    """Scaffolding code between award PK ids and unique award ids"""
     sql = "SELECT generated_unique_award_id FROM awards WHERE id IN %s"
     values = [award_tuple]
     with connection.cursor() as cursor:
