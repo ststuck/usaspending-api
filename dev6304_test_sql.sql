@@ -45,7 +45,7 @@ WITH valid_file_d_awards AS (
             (awards.type IN ('07', '08') and total_subsidy_cost > 0)
             OR awards.type NOT IN ('07', '08')
         )
-        AND (date_signed >= '2017-01-01' OR certified_date >= '2017-01-01')
+        AND certified_date >= '2017-01-01'
 ), unlinked_awards AS (
     SELECT
         unnest(activity) as period,
@@ -66,4 +66,26 @@ SELECT
     COUNT(CASE WHEN is_fpds = True THEN 1 ELSE NULL END) AS procurement,
     COUNT(CASE WHEN is_fpds = False THEN 1 ELSE NULL END) AS assistance
 FROM unlinked_awards
-GROUP BY awarding_agency_id, period;
+GROUP BY awarding_agency_id, period;  -- 8137 rows, 565 s
+
+
+-- UNLINKED FILE C Awards
+WITH valid_file_c_awards AS (
+SELECT
+    distinct_award_key,
+    toptier_code,
+    CASE WHEN piid is null then true ELSE false END as is_fpds,
+    array_agg(DISTINCT CONCAT('FY', sa.reporting_fiscal_year, '-Q', sa.reporting_fiscal_quarter, '-', LPAD(sa.reporting_fiscal_period::text, 2, '0'))) as activity
+FROM financial_accounts_by_awards faba
+INNER JOIN submission_attributes sa USING (submission_id)
+WHERE faba.transaction_obligated_amount is not null and award_id is null
+GROUP BY faba.distinct_award_key, toptier_code, CASE WHEN piid is null then true ELSE false END
+)
+
+SELECT
+    (SELECT name FROM agency a INNER JOIN toptier_agency USING (toptier_agency_id) where toptier_code = fca.toptier_code limit 1) as name,
+    unnest(activity) as period,
+    COUNT(CASE WHEN is_fpds = True THEN 1 ELSE NULL END) AS procurement,
+    COUNT(CASE WHEN is_fpds = False THEN 1 ELSE NULL END) AS assistance
+FROM valid_file_c_awards fca
+GROUP BY toptier_code, period;  -- 48.1 s 896 rows
