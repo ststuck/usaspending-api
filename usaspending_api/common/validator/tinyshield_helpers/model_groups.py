@@ -1,0 +1,26 @@
+AWARD_FILTER_LIST = [
+    "agencies",
+    "award_amounts",
+    "award_id",
+    "contract_pricing_type_codes",
+    "def_codes",
+    "extent_competed_type_codes",
+    "keywords",
+    "legal_entities",
+    "naics_codes",
+    "place_of_performance_locations",
+    "place_of_performance_scope",
+    "program_numbers",
+    "psc_codes",
+    "recipient_id",
+    "recipient_locations",
+    "recipient_scope",
+    "recipient_search_text",
+    "recipient_type_names",
+    "set_aside_type_codes",
+    "tas_codes",
+    "time_period",
+    "treasury_account_components",
+]
+
+PAGINATION_LIST = ["limit", "order", "page", "sort"]

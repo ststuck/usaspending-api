@@ -22,6 +22,7 @@ from usaspending_api.download.models import DownloadJob
 from usaspending_api.download.v2.request_validations import (
     validate_account_request,
     validate_assistance_request,
+    validate_award_download,
     validate_award_request,
     validate_contract_request,
     validate_disaster_recipient_request,
@@ -32,7 +33,8 @@ from usaspending_api.download.v2.request_validations import (
 class DownloadRequestType(Enum):
     ACCOUNT = {"name": "account", "validate_func": validate_account_request}
     ASSISTANCE = {"name": "assistance", "validate_func": validate_assistance_request}
-    AWARD = {"name": "award", "validate_func": validate_award_request}
+    AWARD = {"name": "award", "validate_func": validate_award_download}
+    BULK_AWARD = {"name": "bulk_award", "validate_func": validate_award_request}
     CONTRACT = {"name": "contract", "validate_func": validate_contract_request}
     DISASTER = {"name": "disaster"}
     DISASTER_RECIPIENT = {"name": "disaster_recipient", "validate_func": validate_disaster_recipient_request}

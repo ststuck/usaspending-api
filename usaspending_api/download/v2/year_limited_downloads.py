@@ -16,7 +16,7 @@ class YearLimitedDownloadViewSet(BaseDownloadViewSet):
         # TODO: update front end to use the Common Filter Object and get rid of this function
         self.process_filters(request.data)
 
-        return BaseDownloadViewSet.post(self, request, DownloadRequestType.AWARD, "bulk_download")
+        return BaseDownloadViewSet.post(self, request, DownloadRequestType.BULK_AWARD, "bulk_download")
 
     def process_filters(self, request_data):
         """Filter function to update Bulk Download parameters to shared parameters"""

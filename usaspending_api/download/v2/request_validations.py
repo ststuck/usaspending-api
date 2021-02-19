@@ -19,6 +19,8 @@ from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.common.helpers import fiscal_year_helpers as fy_helpers
 from usaspending_api.common.validator.award_filter import AWARD_FILTER
 from usaspending_api.common.validator.tinyshield import TinyShield
+from usaspending_api.common.validator.tinyshield_helpers.model_definitions import build_model_list
+from usaspending_api.common.validator.tinyshield_helpers.model_groups import AWARD_FILTER_LIST
 from usaspending_api.common.validator.utils import get_model_by_name
 from usaspending_api.download.helpers import check_types_and_assign_defaults, parse_limit, validate_time_periods
 from usaspending_api.download.lookups import (
@@ -32,6 +34,13 @@ from usaspending_api.download.lookups import (
 )
 from usaspending_api.references.models import DisasterEmergencyFundCode
 from usaspending_api.submissions import helpers as sub_helpers
+
+
+def validate_award_download(request_data: dict):
+    models = build_model_list(AWARD_FILTER_LIST)
+    models.extend(build_model_list(["subawards"]))
+    json_request = TinyShield(models).block(request_data)
+    return json_request
 
 
 def validate_award_request(request_data: dict):
