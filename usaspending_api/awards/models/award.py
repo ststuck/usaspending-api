@@ -4,20 +4,6 @@ from django.db.models import Q
 from usaspending_api.common.models import DataSourceTrackedModel
 
 
-class AwardManager(models.Manager):
-    def get_queryset(self):
-        """
-        A generated award will have these set to null, but will also receive no
-        transactions. Thus, these will remain null. This finds those awards and
-        throws them out. As soon as one of those awards gets a transaction
-        (i.e. it is no longer empty), these will be updated via update_from_transaction
-        and the award will no longer match these criteria
-        """
-        q_kwargs = {"latest_transaction__isnull": True, "date_signed__isnull": True, "total_obligation__isnull": True}
-
-        return super(AwardManager, self).get_queryset().filter(~Q(**q_kwargs))
-
-
 class Award(DataSourceTrackedModel):
     """
     Model that provides a high-level award that individual transaction
@@ -223,7 +209,6 @@ class Award(DataSourceTrackedModel):
     )
 
     objects = models.Manager()
-    nonempty = AwardManager()
 
     def __str__(self):
         return "%s piid: %s fain: %s uri: %s" % (self.type_description, self.piid, self.fain, self.uri)
