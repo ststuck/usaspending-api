@@ -125,11 +125,10 @@ This endpoint returns an overview of government agency submission data.
 + `fiscal_year` (required, number)
 + `fiscal_period` (required, number)
 + `current_total_budget_authority_amount` (required, number)
-+ `total_budgetary_resources` (required, number)
++ `total_budgetary_resources` (required, number, nullable)
 + `percent_of_total_budgetary_resources` (required, number)
 + `recent_publication_date` (required, string, nullable)
-+ `recent_publication_date_certified` (required, boolean)
-+ `recent_publication_date_certified` (required, boolean)
++ `recent_publication_date_certified` (required, boolean, nullable)
 + `tas_account_discrepancies_totals` (required, array[TASTotals], fixed-type)
 + `obligation_difference` (required, number)
     The difference in file A and file B obligations.
