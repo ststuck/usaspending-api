@@ -121,6 +121,22 @@ FROM
         )
 );
 
+DELETE FROM
+    public.treasury_appropriation_account
+USING
+    dblink ('broker_server', '(
+        SELECT
+            tas_lookup.account_num::INT AS treasury_account_identifier
+        FROM
+            tas_lookup
+        WHERE
+            UPPER(tas_lookup.financial_indicator2) = ''F'')') AS broker_tas
+        (
+            treasury_account_identifier INT
+        )
+WHERE
+    treasury_appropriation_account.treasury_account_identifier = broker_tas.treasury_account_identifier;
+
 INSERT INTO public.treasury_appropriation_account
 (
     data_source,
