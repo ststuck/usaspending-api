@@ -19,6 +19,7 @@ RUN yum -y install wget gcc openssl-devel bzip2-devel libffi libffi-devel zlib-d
 RUN yum -y groupinstall "Development Tools"
 
 ##### Install PostgreSQL 10 client (psql)
+RUN yum -y remove postgresql
 RUN yum -y install https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
 RUN yum -y install postgresql10
 
