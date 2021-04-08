@@ -43,3 +43,6 @@ COPY . /dockermount
 
 ##### Ensure Python STDOUT gets sent to container logs
 ENV PYTHONUNBUFFERED=1
+
+##### Add ec2-user for unprivileged runs
+RUN useradd -ms /bin/bash ec2-user
