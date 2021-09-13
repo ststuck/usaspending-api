@@ -119,6 +119,7 @@ INNER JOIN (
     INNER JOIN disaster_emergency_fund_code defc
         ON defc.code = faba.disaster_emergency_fund_code
         AND defc.group_name = 'covid_19'
+        AND defc.code = 'O'
     INNER JOIN submission_attributes sa
         ON faba.submission_id = sa.submission_id
         AND sa.reporting_period_start >= '2020-04-01'

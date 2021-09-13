@@ -48,6 +48,7 @@ LEFT OUTER JOIN "cgac" AS "cgac_ata" ON ("treasury_appropriation_account"."alloc
 WHERE (
     "disaster_emergency_fund_code"."group_name" = 'covid_19'
     AND "submission_attributes"."is_final_balances_for_fy" = TRUE
+    AND "disaster_emergency_fund_code"."code" = 'O'
 )
 GROUP BY
     "financial_accounts_by_program_activity_object_class"."financial_accounts_by_program_activity_object_class_id",
