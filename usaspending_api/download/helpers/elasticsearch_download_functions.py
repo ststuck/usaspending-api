@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from datetime import datetime, timezone
 from typing import Union
 
-from django.conf import settings
+# from django.conf import settings
 from django.db.models import QuerySet
 from elasticsearch_dsl import A
 
@@ -34,9 +34,11 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         if total is None:
             logger.error("Error retrieving total results. Max number of attempts reached.")
             return
-        max_iterations = settings.MAX_DOWNLOAD_LIMIT // size
+
+        # max_iterations = settings.MAX_DOWNLOAD_LIMIT // size
         req_iterations = (total // size) + 1
-        num_iterations = min(max(1, req_iterations), max_iterations)
+        # num_iterations = min(max(1, req_iterations), max_iterations)
+        num_iterations = max(1, req_iterations)
 
         # Setting the shard_size below works in this case because we are aggregating on a unique field. Otherwise, this
         # would not work due to the number of records. Other places this is set are in the different spending_by
