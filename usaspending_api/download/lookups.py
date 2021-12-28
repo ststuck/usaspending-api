@@ -22,7 +22,7 @@ from usaspending_api.download.models import (
     FinancialAccountsByProgramActivityObjectClassDownloadView,
 )
 from usaspending_api.references.models import GTASSF133Balances
-from usaspending_api.search.models import AwardSearchView, SubawardView, TransactionSearch
+from usaspending_api.search.models import AwardSearchView, SubawardView
 from usaspending_api.awards.v2.filters.idv_filters import (
     idv_order_filter,
     idv_transaction_filter,
@@ -33,9 +33,6 @@ from usaspending_api.awards.v2.filters.award_filters import (
     awards_subaward_filter,
     awards_treasury_account_funding_filter,
 )
-from usaspending_api.awards.v2.filters.search import (
-    transaction_search_filter,
-)
 from usaspending_api.awards.v2.filters.sub_award import subaward_download
 from usaspending_api.download.helpers.download_annotation_functions import (
     transaction_annotations,
@@ -43,7 +40,6 @@ from usaspending_api.download.helpers.download_annotation_functions import (
     subaward_annotations,
     idv_order_annotations,
     idv_transaction_annotations,
-    transaction_search_annotations,
 )
 
 
@@ -78,14 +74,14 @@ VALUE_MAPPINGS = {
     # Transaction Level
     "transactions": {
         "source_type": "award",
-        "table": TransactionSearch,
-        "table_name": "transaction_search",
+        "table": TransactionNormalized,
+        "table_name": "transaction",
         "type_name": "PrimeTransactions",
         "download_name": "{agency}{type}_PrimeTransactions_{timestamp}",
-        "contract_data": "transaction__contract_data",
-        "assistance_data": "transaction__assistance_data",
-        "filter_function": transaction_search_filter,
-        "annotations_function": transaction_search_annotations,
+        "contract_data": "contract_data",
+        "assistance_data": "assistance_data",
+        "filter_function": TransactionsElasticsearchDownload.query,
+        "annotations_function": transaction_annotations,
     },
     # Elasticsearch Transaction Level
     "elasticsearch_transactions": {

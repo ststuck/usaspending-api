@@ -252,11 +252,12 @@ class AwardDownloadValidator(DownloadValidatorBase):
             )
 
         self._json_request["download_types"] = []
-        final_award_filters["prime_and_sub_award_types"] = {}
+        # final_award_filters["prime_and_sub_award_types"] = {}
 
         if custom_award_filters.get("prime_award_types"):
             self._json_request["download_types"].append("prime_awards")
-            final_award_filters["prime_and_sub_award_types"]["prime_awards"] = custom_award_filters["prime_award_types"]
+            final_award_filters["award_type_codes"] = custom_award_filters["prime_award_types"]
+            # final_award_filters["prime_and_sub_award_types"]["prime_awards"] = custom_award_filters["prime_award_types"]
 
         if custom_award_filters.get("sub_award_types"):
             self._json_request["download_types"].append("sub_awards")

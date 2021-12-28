@@ -187,10 +187,8 @@ def get_download_sources(json_request: dict, download_job: DownloadJob = None, o
                 gte_date_type="action_date",
                 lte_date_type="date_signed",
             )
-            if download_type == "elasticsearch_awards" or download_type == "elasticsearch_transactions":
-                queryset = filter_function(filters, download_job=download_job)
-            else:
-                queryset = filter_function(filters)
+
+            queryset = filter_function(filters, download_job=download_job)
 
             if filters.get("prime_and_sub_award_types") is not None:
                 award_type_codes = set(filters["prime_and_sub_award_types"][download_type])
