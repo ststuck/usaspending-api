@@ -32,6 +32,10 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         a generator that yields list of IDs in chunksize SIZE.
         """
         max_retries = 10
+        write_to_log(
+            message=f"Starting to count records in Elasticsearch",
+            download_job=download_job,
+        )
         total = search.handle_count(retries=max_retries)
         if total is None:
             logger.error("Error retrieving total results. Max number of attempts reached.")
@@ -52,6 +56,11 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         # endpoints which are either routed or contain less than 10k unique values, both allowing for the shard
         # size to be manually set to 10k.
         for iteration in range(num_iterations):
+            if iteration == 0 or iteration % 100 == 0:
+                write_to_log(
+                    message=f"Working on partition {iteration} of {num_iterations - 1}; logs every 100",
+                    download_job=download_job,
+                )
             aggregation = A(
                 "terms",
                 field=cls._source_field,
