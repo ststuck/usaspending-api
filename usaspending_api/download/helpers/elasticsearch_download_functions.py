@@ -24,7 +24,9 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
     _search_type = None
 
     @classmethod
-    def _get_download_ids_generator(cls, search: Union[AwardSearch, TransactionSearch], size: int):
+    def _get_download_ids_generator(
+        cls, search: Union[AwardSearch, TransactionSearch], size: int, download_job: DownloadJob
+    ):
         """
         Takes an AwardSearch or TransactionSearch object (that specifies the index, filter, and source) and returns
         a generator that yields list of IDs in chunksize SIZE.
@@ -39,6 +41,11 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         req_iterations = (total // size) + 1
         # num_iterations = min(max(1, req_iterations), max_iterations)
         num_iterations = max(1, req_iterations)
+
+        write_to_log(
+            message=f"{num_iterations} iterations needed to retrieve {total} download IDs",
+            download_job=download_job,
+        )
 
         # Setting the shard_size below works in this case because we are aggregating on a unique field. Otherwise, this
         # would not work due to the number of records. Other places this is set are in the different spending_by
@@ -70,7 +77,7 @@ class _ElasticsearchDownload(metaclass=ABCMeta):
         """
         filter_query = cls._filter_query_func(filters)
         search = cls._search_type().filter(filter_query).source([cls._source_field])
-        ids = cls._get_download_ids_generator(search, size)
+        ids = cls._get_download_ids_generator(search, size, download_job)
         lookup_id_type = cls._search_type.type_as_string()
         now = datetime.now(timezone.utc)
         download_lookup_obj_list = [
